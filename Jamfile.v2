@@ -1,0 +1,45 @@
+project jpeg
+;
+# jcapimin.c jcapistd.c jccoefct.c jccolor.c jcinit.c jcdctmgr.c jchuff.c
+exe jpeg_decompress : djpeg.c 
+jdapimin.c
+jdapistd.c
+jdatadst.c
+jdatasrc.c
+jdcoefct.c
+jdcolor.c
+jddctmgr.c
+jdhuff.c
+jdinput.c
+jdmainct.c
+jdmarker.c
+jdmaster.c
+jdmerge.c
+jdphuff.c
+jdpostct.c
+jdsample.c
+jdtrans.c
+jerror.c
+jfdctflt.c
+jfdctfst.c
+jfdctint.c
+jidctflt.c
+jidctfst.c
+jidctint.c
+jidctred.c
+jmemansi.c
+wrtarga.c
+wrbmp.c
+wrgif.c
+wrppm.c
+rdcolmap.c
+jquant2.c
+jquant1.c
+jcomapi.c
+cdjpeg.c
+jmemmgr.c
+jutils.c
+;
+
+install build : jpeg_decompress 
+;
