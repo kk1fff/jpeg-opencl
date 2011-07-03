@@ -5,7 +5,8 @@ exe jpeg_decompress : djpeg.c
 jdapimin.c
 jdapistd.c
 jdatadst.c
-jdatasrc.c
+#jdatasrc.c
+jmemdatasrc.c
 jdcoefct.c
 jdcolor.c
 jddctmgr.c
@@ -39,6 +40,7 @@ jcomapi.c
 cdjpeg.c
 jmemmgr.c
 jutils.c
+ReadFile.c
 ;
 
 install build : jpeg_decompress 
