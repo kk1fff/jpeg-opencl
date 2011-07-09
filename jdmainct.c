@@ -351,9 +351,9 @@ process_data_simple_main (j_decompress_ptr cinfo,
 
   /* Read input data if we haven't filled the main buffer yet */
   if (! main->buffer_full) {
-    if (! (*cinfo->coef->decompress_data) (cinfo, main->buffer))
-      return;			/* suspension forced, can do nothing more */
-    main->buffer_full = TRUE;	/* OK, we have an iMCU row to work with */
+      if (! (*cinfo->coef->decompress_data) (cinfo, main->buffer))
+          return;			/* suspension forced, can do nothing more */
+      main->buffer_full = TRUE;	/* OK, we have an iMCU row to work with */
   }
 
   /* There are always min_DCT_scaled_size row groups in an iMCU row. */

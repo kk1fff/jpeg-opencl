@@ -133,6 +133,8 @@ start_output_pass (j_decompress_ptr cinfo)
 }
 
 
+    METHODDEF(int)
+decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf);
 /*
  * Decompress and return some data in the single-pass case.
  * Always attempts to emit one fully interleaved MCU row ("iMCU" row).
@@ -149,50 +151,60 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     my_coef_ptr coef = (my_coef_ptr) cinfo->coef;
     JDIMENSION MCU_col_num;	/* index of current MCU within row */
     JDIMENSION last_MCU_col = cinfo->MCUs_per_row - 1;
-    JDIMENSION last_iMCU_row = cinfo->total_iMCU_rows - 1;
-    int  blkn,ci, xindex, yindex, yoffset, useful_width;
-    JSAMPARRAY output_ptr;
-    JDIMENSION start_col, output_col;
-    jpeg_component_info *compptr;
-    inverse_DCT_method_ptr inverse_DCT;
+    int yoffset;
+    int rows;
+
+    cinfo->decoded_mcus_base = cinfo->mem->alloc_large((j_common_ptr)cinfo,JPOOL_IMAGE,
+            sizeof(JBLOCK) * cinfo->blocks_in_MCU 
+            * coef->MCU_rows_per_iMCU_row * cinfo->MCUs_per_row * cinfo->MCU_rows_in_scan);
     if(!cinfo->decoded_mcus_base)
     {
-        int rows;
-        cinfo->decoded_mcus_base = cinfo->mem->alloc_large((j_common_ptr)cinfo,JPOOL_IMAGE,
-                sizeof(JBLOCK) * cinfo->blocks_in_MCU 
-                * coef->MCU_rows_per_iMCU_row * cinfo->MCUs_per_row * cinfo->MCU_rows_in_scan);
-        if(!cinfo->decoded_mcus_base)
-        {
-            return JPEG_SCAN_COMPLETED;
-        }
-        cinfo->decoded_mcus_current = cinfo->decoded_mcus_base;
-        for(rows = 0 ; rows < cinfo->MCU_rows_in_scan ; ++ rows)
-        {
-            for (yoffset = coef->MCU_vert_offset; yoffset < coef->MCU_rows_per_iMCU_row;
-                    yoffset++) {
-                for (MCU_col_num = coef->MCU_ctr; MCU_col_num <= last_MCU_col;
-                        MCU_col_num++) {
-                    /* Try to fetch an MCU.  Entropy decoder expects buffer to be zeroed. */
-                    jzero_far((void FAR *) coef->MCU_buffer[0],
-                            (size_t) (cinfo->blocks_in_MCU * SIZEOF(JBLOCK)));
-                    if (! (*cinfo->entropy->decode_mcu) (cinfo, coef->MCU_buffer)) {
-                        /* this is deadly status */
-                        return JPEG_SCAN_COMPLETED;
-                    }
-                    // TODO : copy the MCU to cinfo->decoded_mcus_current,from coef->MCU_buffer
+        return JPEG_SUSPENDED;
+    }
+    cinfo->decoded_mcus_current = cinfo->decoded_mcus_base;
+    for(rows = 0 ; rows < cinfo->MCU_rows_in_scan ; ++ rows)
+    {
+        for (yoffset = coef->MCU_vert_offset; yoffset < coef->MCU_rows_per_iMCU_row;
+                yoffset++) {
+            for (MCU_col_num = coef->MCU_ctr; MCU_col_num <= last_MCU_col;
+                    MCU_col_num++) {
+                /* Try to fetch an MCU.  Entropy decoder expects buffer to be zeroed. */
+                jzero_far((void FAR *) coef->MCU_buffer[0],
+                        (size_t) (cinfo->blocks_in_MCU * SIZEOF(JBLOCK)));
+                if (! (*cinfo->entropy->decode_mcu) (cinfo, coef->MCU_buffer)) {
+                    /* this is deadly status */
+                    return JPEG_SUSPENDED;
+                }
+                {
+                    int i;
+                    for (i = 0 ; i < cinfo->blocks_in_MCU ; ++i, ++cinfo->decoded_mcus_current)
                     {
-                        int i;
-                        for (i = 0 ; i < cinfo->blocks_in_MCU ; ++i, ++cinfo->decoded_mcus_current)
-                        {
-                            JBLOCK * sCurrent = coef->MCU_buffer[i];
-                            memcpy(cinfo->decoded_mcus_current,sCurrent, sizeof(JBLOCK));
-                        }
+                        JBLOCK * sCurrent = coef->MCU_buffer[i];
+                        memcpy(cinfo->decoded_mcus_current,sCurrent, sizeof(JBLOCK));
                     }
                 }
             }
         }
-        cinfo->decoded_mcus_current = cinfo->decoded_mcus_base;
     }
+    cinfo->decoded_mcus_current = cinfo->decoded_mcus_base;
+    coef->pub.decompress_data = decompress_onepass2;
+    decompress_onepass2(cinfo,output_buf);
+    return 1; // no error
+}
+
+
+    METHODDEF(int)
+decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
+{
+    my_coef_ptr coef = (my_coef_ptr) cinfo->coef;
+    JDIMENSION MCU_col_num;	/* index of current MCU within row */
+    JDIMENSION last_MCU_col = cinfo->MCUs_per_row - 1;
+    JDIMENSION last_iMCU_row = cinfo->total_iMCU_rows - 1;
+    int  ci, xindex, yindex, yoffset, useful_width;
+    JSAMPARRAY output_ptr;
+    JDIMENSION start_col, output_col;
+    jpeg_component_info *compptr;
+    inverse_DCT_method_ptr inverse_DCT;
     /* Loop to process as much as one whole iMCU row */
     for (yoffset = coef->MCU_vert_offset; yoffset < coef->MCU_rows_per_iMCU_row;
             yoffset++) {
@@ -203,7 +215,6 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
              * incremented past them!).  Note the inner loop relies on having
              * allocated the MCU_buffer[] blocks sequentially.
              */
-            blkn = 0;
             for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
                 compptr = cinfo->cur_comp_info[ci];
                 /* Don't bother to IDCT an uninteresting component. */
@@ -228,12 +239,10 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                             output_col += compptr->DCT_scaled_size;
                         }
                     }
-                    // blkn += compptr->MCU_width;
                     cinfo->decoded_mcus_current += compptr->MCU_width;
                     output_ptr += compptr->DCT_scaled_size;
                 }
             }
-            // cinfo->decoded_mcus_current += blkn; 
         }
         /* Completed an MCU row, but perhaps not an iMCU row */
         coef->MCU_ctr = 0;
@@ -247,8 +256,8 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     /* Completed the scan */
     (*cinfo->inputctl->finish_input_pass) (cinfo);
     return JPEG_SCAN_COMPLETED;
-}
 
+}
 
 /*
  * Dummy consume-input routine for single-pass operation.
@@ -764,3 +773,4 @@ jinit_d_coef_controller (j_decompress_ptr cinfo, boolean need_full_buffer)
         coef->pub.coef_arrays = NULL; /* flag for no virtual arrays */
     }
 }
+
