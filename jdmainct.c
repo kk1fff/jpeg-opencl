@@ -350,28 +350,35 @@ process_data_simple_main (j_decompress_ptr cinfo,
   JDIMENSION rowgroups_avail;
 
   /* Read input data if we haven't filled the main buffer yet */
-  if (! main->buffer_full) {
-      if (! (*cinfo->coef->decompress_data) (cinfo, main->buffer))
-          return;			/* suspension forced, can do nothing more */
-      main->buffer_full = TRUE;	/* OK, we have an iMCU row to work with */
-  }
 
-  /* There are always min_DCT_scaled_size row groups in an iMCU row. */
-  rowgroups_avail = (JDIMENSION) cinfo->min_DCT_scaled_size;
-  /* Note: at the bottom of the image, we may pass extra garbage row groups
-   * to the postprocessor.  The postprocessor has to check for bottom
-   * of image anyway (at row resolution), so no point in us doing it too.
-   */
+  while (cinfo->output_scanline < cinfo->output_height) {
+      JDIMENSION last_scanline;
+      last_scanline = cinfo->output_scanline;
+      if (! main->buffer_full) {
+          if (! (*cinfo->coef->decompress_data) (cinfo, main->buffer))
+              return;			/* suspension forced, can do nothing more */
+          main->buffer_full = TRUE;	/* OK, we have an iMCU row to work with */
+      }
+      /* There are always min_DCT_scaled_size row groups in an iMCU row. */
+      rowgroups_avail = (JDIMENSION) cinfo->min_DCT_scaled_size;
+      /* Note: at the bottom of the image, we may pass extra garbage row groups
+       * to the postprocessor.  The postprocessor has to check for bottom
+       * of image anyway (at row resolution), so no point in us doing it too.
+       */
 
-  /* Feed the postprocessor */
-  (*cinfo->post->post_process_data) (cinfo, main->buffer,
-				     &main->rowgroup_ctr, rowgroups_avail,
-				     output_buf, out_row_ctr, out_rows_avail);
+      /* Feed the postprocessor */
+      (*cinfo->post->post_process_data) (cinfo, main->buffer,
+              &main->rowgroup_ctr, rowgroups_avail,
+              output_buf, &cinfo->output_scanline, out_rows_avail);
 
-  /* Has postprocessor consumed all the data yet? If so, mark buffer empty */
-  if (main->rowgroup_ctr >= rowgroups_avail) {
-    main->buffer_full = FALSE;
-    main->rowgroup_ctr = 0;
+      /* Has postprocessor consumed all the data yet? If so, mark buffer empty */
+      if (main->rowgroup_ctr >= rowgroups_avail) {
+          main->buffer_full = FALSE;
+          main->rowgroup_ctr = 0;
+      }
+      // TODO: unable to handle the exeception 
+      //if (cinfo->output_scanline == last_scanline)
+      //    return FALSE;		/* No progress made, must suspend */
   }
 }
 
