@@ -77,6 +77,9 @@ jpeg_CreateCompress (j_compress_ptr cinfo, int version, size_t structsize)
 
   /* OK, I'm ready */
   cinfo->global_state = CSTATE_START;
+
+  cinfo->decoded_mcus_base = NULL;
+  cinfo->decoded_mcus_current = NULL;
 }
 
 

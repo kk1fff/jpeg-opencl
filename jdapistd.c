@@ -104,6 +104,7 @@ output_pass_setup (j_decompress_ptr cinfo)
   while (cinfo->master->is_dummy_pass) {
 #ifdef QUANT_2PASS_SUPPORTED
     /* Crank through the dummy pass */
+    // TODO: make it handle without loop
     while (cinfo->output_scanline < cinfo->output_height) {
       JDIMENSION last_scanline;
       /* Call progress monitor hook if present */
