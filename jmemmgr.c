@@ -400,17 +400,17 @@ alloc_sarray (j_common_ptr cinfo, int pool_id,
   JSAMPARRAY result;
   JSAMPROW workspace;
   JDIMENSION rowsperchunk, currow, i;
-  long ltemp;
 
   /* Calculate max # of rows allowed in one allocation chunk */
-  ltemp = (MAX_ALLOC_CHUNK-SIZEOF(large_pool_hdr)) /
-	  ((long) samplesperrow * SIZEOF(JSAMPLE));
-  if (ltemp <= 0)
-    ERREXIT(cinfo, JERR_WIDTH_OVERFLOW);
-  if (ltemp < (long) numrows)
-    rowsperchunk = (JDIMENSION) ltemp;
-  else
-    rowsperchunk = numrows;
+  // ltemp = (MAX_ALLOC_CHUNK-SIZEOF(large_pool_hdr)) /
+  //     ((long) samplesperrow * SIZEOF(JSAMPLE));
+  // if (ltemp <= 0)
+  //   ERREXIT(cinfo, JERR_WIDTH_OVERFLOW);
+  // if (ltemp < (long) numrows)
+  //   rowsperchunk = (JDIMENSION) ltemp;
+  // else
+  //   rowsperchunk = numrows;
+  rowsperchunk = numrows;
   mem->last_rowsperchunk = rowsperchunk;
 
   /* Get space for row pointers (small object) */
@@ -420,7 +420,6 @@ alloc_sarray (j_common_ptr cinfo, int pool_id,
   /* Get the rows themselves (large objects) */
   currow = 0;
   while (currow < numrows) {
-    rowsperchunk = MIN(rowsperchunk, numrows - currow);
     workspace = (JSAMPROW) alloc_large(cinfo, pool_id,
 	(size_t) ((size_t) rowsperchunk * (size_t) samplesperrow
 		  * SIZEOF(JSAMPLE)));

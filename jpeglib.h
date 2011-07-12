@@ -176,6 +176,8 @@ typedef struct {
 
   /* Private per-component storage for DCT or IDCT subsystem. */
   void * dct_table;
+  JDIMENSION row_buffer_size;
+  JDIMENSION image_buffer_size;
 } jpeg_component_info;
 
 

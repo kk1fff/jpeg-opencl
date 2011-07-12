@@ -512,9 +512,11 @@ jinit_d_main_controller (j_decompress_ptr cinfo, boolean need_full_buffer)
 
     rgroup = (compptr->v_samp_factor * compptr->DCT_scaled_size) /
       cinfo->min_DCT_scaled_size; /* height of a row group of component */
+    compptr->row_buffer_size = compptr->width_in_blocks * compptr->DCT_scaled_size;
     main->buffer[ci] = (*cinfo->mem->alloc_sarray)
 			((j_common_ptr) cinfo, JPOOL_IMAGE,
-			 compptr->width_in_blocks * compptr->DCT_scaled_size,
+			 compptr->row_buffer_size,
 			 (JDIMENSION) (rgroup * ngroups * ygroup));
+    compptr->image_buffer_size = compptr->row_buffer_size * (rgroup * ngroups * ygroup);
   }
 }
