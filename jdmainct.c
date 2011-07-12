@@ -513,6 +513,7 @@ jinit_d_main_controller (j_decompress_ptr cinfo, boolean need_full_buffer)
     rgroup = (compptr->v_samp_factor * compptr->DCT_scaled_size) /
       cinfo->min_DCT_scaled_size; /* height of a row group of component */
     compptr->row_buffer_size = compptr->width_in_blocks * compptr->DCT_scaled_size;
+    // buffers of different components are in separated memory regions
     main->buffer[ci] = (*cinfo->mem->alloc_sarray)
 			((j_common_ptr) cinfo, JPOOL_IMAGE,
 			 compptr->row_buffer_size,
