@@ -200,16 +200,16 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     JDIMENSION MCU_col_num;	/* index of current MCU within row */
     JDIMENSION last_MCU_col = cinfo->MCUs_per_row - 1;
     JDIMENSION last_iMCU_row = cinfo->total_iMCU_rows - 1;
-    int  ci, xindex, yindex, yoffset, useful_width;
+    int  ci, xindex, yindex, yoffset,yheightoffset, useful_width;
     JSAMPARRAY output_ptr;
     JDIMENSION start_col, output_col;
     jpeg_component_info *compptr;
     inverse_DCT_method_ptr inverse_DCT;
-    /* Loop to process as much as one whole iMCU row */
-    for (yoffset = coef->MCU_vert_offset; yoffset < coef->MCU_rows_per_iMCU_row;
-            yoffset++) {
-        for (MCU_col_num = coef->MCU_ctr; MCU_col_num <= last_MCU_col;
-                MCU_col_num++) {
+
+    for( yheightoffset = 0 ; yheightoffset < cinfo->total_iMCU_rows ; ++ yheightoffset)
+    {
+        /* Loop to process as much as one whole iMCU row */
+        for (MCU_col_num = coef->MCU_ctr; MCU_col_num <= last_MCU_col; MCU_col_num++) {
             /* Determine where data should go in output_buf and do the IDCT thing.
              * We skip dummy blocks at the right and bottom edges (but blkn gets
              * incremented past them!).  Note the inner loop relies on having
@@ -225,12 +225,11 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                 inverse_DCT = cinfo->idct->inverse_DCT[compptr->component_index];
                 useful_width = (MCU_col_num < last_MCU_col) ? compptr->MCU_width
                     : compptr->last_col_width;
-                output_ptr = output_buf[compptr->component_index] +
-                    yoffset * compptr->DCT_scaled_size;
+                output_ptr = output_buf[compptr->component_index] + yheightoffset * compptr->DCT_scaled_size ;
+
                 start_col = MCU_col_num * compptr->MCU_sample_width;
                 for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
-                    if (cinfo->input_iMCU_row < last_iMCU_row ||
-                            yoffset+yindex < compptr->last_row_height) {
+                    if (cinfo->input_iMCU_row < last_iMCU_row ) {
                         output_col = start_col;
                         for (xindex = 0; xindex < useful_width; xindex++) {
                             (*inverse_DCT) (cinfo, compptr,
@@ -246,13 +245,11 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         }
         /* Completed an MCU row, but perhaps not an iMCU row */
         coef->MCU_ctr = 0;
+
+        /* Completed the iMCU row, advance counters for next one */
     }
-    /* Completed the iMCU row, advance counters for next one */
-    cinfo->output_iMCU_row++;
-    if (++(cinfo->input_iMCU_row) < cinfo->total_iMCU_rows) {
-        start_iMCU_row(cinfo);
-        return JPEG_ROW_COMPLETED;
-    }
+    cinfo->output_iMCU_row = cinfo->total_iMCU_rows;
+    cinfo->input_iMCU_row = cinfo->total_iMCU_rows;
     /* Completed the scan */
     (*cinfo->inputctl->finish_input_pass) (cinfo);
     return JPEG_SCAN_COMPLETED;
