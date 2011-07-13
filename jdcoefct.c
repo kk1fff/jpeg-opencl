@@ -206,6 +206,12 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     JDIMENSION start_col, output_col;
     jpeg_component_info *compptr;
     inverse_DCT_method_ptr inverse_DCT;
+    unsigned int componets_mcu_width;
+
+    for (componets_mcu_width = 0 ,ci = 0; ci < cinfo->comps_in_scan; ci++) {
+        compptr = cinfo->cur_comp_info[ci];
+        componets_mcu_width += compptr->MCU_width * compptr->MCU_height;
+    }
 
     for( yheightoffset = 0 ; yheightoffset < cinfo->total_iMCU_rows ; ++ yheightoffset)
     {
@@ -217,6 +223,8 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
              * allocated the MCU_buffer[] blocks sequentially.
              */
             for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+                JBLOCK * sCurrentBlock;
+
                 compptr = cinfo->cur_comp_info[ci];
                 /* Don't bother to IDCT an uninteresting component. */
                 if (! compptr->component_needed) {
@@ -239,13 +247,21 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                 start_col = MCU_col_num * compptr->MCU_sample_width;
                 for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
                     output_col = start_col;
+                    sCurrentBlock = cinfo->decoded_mcus_base + (( yheightoffset * cinfo->MCUs_per_row  + MCU_col_num) * componets_mcu_width) ;
+                    {
+                        int k;
+                        for( k = ci ; k > 0 ; --k)
+                        {
+                            sCurrentBlock += compptr[-k].MCU_width;
+                        }
+                    }
                     for (xindex = 0; xindex < useful_width; xindex++) {
                         (*inverse_DCT) (cinfo, compptr,
-                                (JCOEFPTR) (cinfo->decoded_mcus_current +  xindex),
+                                (JCOEFPTR) (sCurrentBlock +  xindex),
                                 output_ptr, output_col);
                         output_col += compptr->DCT_scaled_size;
                     }
-                    cinfo->decoded_mcus_current += compptr->MCU_width;
+                    sCurrentBlock += compptr->MCU_width;
                     cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
                 }
             }
