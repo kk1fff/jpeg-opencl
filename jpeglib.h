@@ -178,6 +178,7 @@ typedef struct {
   void * dct_table;
   JDIMENSION row_buffer_size;
   JDIMENSION image_buffer_size;
+  JDIMENSION dimesion_size;
 } jpeg_component_info;
 
 

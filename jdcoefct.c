@@ -202,6 +202,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     JDIMENSION last_iMCU_row = cinfo->total_iMCU_rows - 1;
     int  ci, xindex, yindex, yoffset,yheightoffset, useful_width;
     JSAMPARRAY output_ptr;
+    JSAMPROW cur_row;
     JDIMENSION start_col, output_col;
     jpeg_component_info *compptr;
     inverse_DCT_method_ptr inverse_DCT;
@@ -225,21 +226,27 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                 inverse_DCT = cinfo->idct->inverse_DCT[compptr->component_index];
                 useful_width = (MCU_col_num < last_MCU_col) ? compptr->MCU_width
                     : compptr->last_col_width;
-                output_ptr = output_buf[compptr->component_index] + yheightoffset * compptr->DCT_scaled_size ;
+                {
+                    int k;
+                    for ( k = ci , cur_row = **output_buf ; k > 0 ; --k)
+                    {
+                        cur_row += compptr[ -k ].image_buffer_size;
+                    }
+                    cur_row +=  yheightoffset * compptr->DCT_scaled_size * compptr->row_buffer_size ;
+                }
+                output_ptr = &cur_row;
 
                 start_col = MCU_col_num * compptr->MCU_sample_width;
                 for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
-                    if (cinfo->input_iMCU_row < last_iMCU_row ) {
-                        output_col = start_col;
-                        for (xindex = 0; xindex < useful_width; xindex++) {
-                            (*inverse_DCT) (cinfo, compptr,
-                                    (JCOEFPTR) (cinfo->decoded_mcus_current +  xindex),
-                                    output_ptr, output_col);
-                            output_col += compptr->DCT_scaled_size;
-                        }
+                    output_col = start_col;
+                    for (xindex = 0; xindex < useful_width; xindex++) {
+                        (*inverse_DCT) (cinfo, compptr,
+                                (JCOEFPTR) (cinfo->decoded_mcus_current +  xindex),
+                                output_ptr, output_col);
+                        output_col += compptr->DCT_scaled_size;
                     }
                     cinfo->decoded_mcus_current += compptr->MCU_width;
-                    output_ptr += compptr->DCT_scaled_size;
+                    cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
                 }
             }
         }

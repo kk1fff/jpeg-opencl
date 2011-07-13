@@ -484,6 +484,11 @@ jinit_d_main_controller (j_decompress_ptr cinfo, boolean need_full_buffer)
   my_main_ptr main;
   int ci, rgroup, ngroups;
   jpeg_component_info *compptr;
+  JSAMPROW sSampleBuffer;
+  JSAMPARRAY sSampleArrays;
+  int ygroup = cinfo->total_iMCU_rows;
+  size_t sTotalImageSize = 0;
+  size_t sTotoalDimensionSize = 0;
 
   main = (my_main_ptr)
     (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
@@ -508,16 +513,26 @@ jinit_d_main_controller (j_decompress_ptr cinfo, boolean need_full_buffer)
 
   for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
        ci++, compptr++) {
-    int ygroup = cinfo->total_iMCU_rows;
+      rgroup = (compptr->v_samp_factor * compptr->DCT_scaled_size) /
+          cinfo->min_DCT_scaled_size; /* height of a row group of component */
+      compptr->row_buffer_size = compptr->width_in_blocks * compptr->DCT_scaled_size;
+      compptr->dimesion_size  = (rgroup * ngroups * ygroup) ;
+      compptr->image_buffer_size = compptr->row_buffer_size * compptr->dimesion_size ;
+      sTotalImageSize += compptr->image_buffer_size;
+      sTotoalDimensionSize += compptr->dimesion_size;
+  }
+  sSampleArrays = (JSAMPARRAY)(*cinfo->mem->alloc_small)((j_common_ptr)cinfo,
+          JPOOL_IMAGE,sTotoalDimensionSize *  sizeof(JSAMPROW) );
+  sSampleBuffer = (JSAMPROW)(*cinfo->mem->alloc_large)((j_common_ptr)cinfo,JPOOL_IMAGE,sTotalImageSize * sizeof(JSAMPLE));
 
-    rgroup = (compptr->v_samp_factor * compptr->DCT_scaled_size) /
-      cinfo->min_DCT_scaled_size; /* height of a row group of component */
-    compptr->row_buffer_size = compptr->width_in_blocks * compptr->DCT_scaled_size;
+  for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+       ci++, compptr++) {
+    int i;
     // buffers of different components are in separated memory regions
-    main->buffer[ci] = (*cinfo->mem->alloc_sarray)
-			((j_common_ptr) cinfo, JPOOL_IMAGE,
-			 compptr->row_buffer_size,
-			 (JDIMENSION) (rgroup * ngroups * ygroup));
-    compptr->image_buffer_size = compptr->row_buffer_size * (rgroup * ngroups * ygroup);
+    main->buffer[ci] = sSampleArrays;
+    for (i = 0 ; i < compptr->dimesion_size ; ++i,++sSampleArrays, sSampleBuffer += compptr->row_buffer_size)
+    {
+        *sSampleArrays = sSampleBuffer;
+    }
   }
 }

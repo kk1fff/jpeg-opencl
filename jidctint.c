@@ -275,7 +275,7 @@ jpeg_idct_islow (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 
   wsptr = workspace;
   for (ctr = 0; ctr < DCTSIZE; ctr++) {
-    outptr = output_buf[ctr] + output_col;
+    outptr = (*output_buf) + ctr * compptr->row_buffer_size + output_col;
     /* Rows of zeroes can be exploited in the same way as we did with columns.
      * However, the column calculation has created many nonzero AC terms, so
      * the simplification applies less often (typically 5% to 10% of the time).
