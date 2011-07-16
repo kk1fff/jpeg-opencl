@@ -80,6 +80,32 @@ jpeg_CreateDecompress (j_decompress_ptr cinfo, int version, size_t structsize)
 
   /* OK, I'm ready */
   cinfo->global_state = DSTATE_START;
+  // init cl_context
+  {
+      cl_int error_code;
+      cl_platform_id platform_id;
+      cl_device_id device_id;
+      
+      if(CL_SUCCESS != (error_code = clGetPlatformIDs(1,&platform_id,NULL)) )
+      {
+          ERREXIT(cinfo,error_code);
+      }
+      if(CL_SUCCESS != (error_code = clGetDeviceIDs(platform_id,CL_DEVICE_TYPE_GPU,1,&device_id,NULL)) )
+      {
+          ERREXIT(cinfo,error_code);
+      }
+      cinfo->current_cl_context = clCreateContext(NULL,1,&device_id,NULL,NULL,&error_code);
+      if(error_code != CL_SUCCESS)
+      {
+          ERREXIT(cinfo,error_code);
+      }
+      cinfo->current_cl_queue = clCreateCommandQueue(cinfo->current_cl_context,
+              device_id,(cl_command_queue_properties)NULL,&error_code);
+      if(error_code != CL_SUCCESS)
+      {
+          ERREXIT(cinfo,error_code);
+      }
+  }
 }
 
 
@@ -90,7 +116,9 @@ jpeg_CreateDecompress (j_decompress_ptr cinfo, int version, size_t structsize)
 GLOBAL(void)
 jpeg_destroy_decompress (j_decompress_ptr cinfo)
 {
-  jpeg_destroy((j_common_ptr) cinfo); /* use common routine */
+    clReleaseCommandQueue(cinfo->current_cl_queue);
+    clReleaseContext(cinfo->current_cl_context);
+    jpeg_destroy((j_common_ptr) cinfo); /* use common routine */
 }
 
 
@@ -102,7 +130,7 @@ jpeg_destroy_decompress (j_decompress_ptr cinfo)
 GLOBAL(void)
 jpeg_abort_decompress (j_decompress_ptr cinfo)
 {
-  jpeg_abort((j_common_ptr) cinfo); /* use common routine */
+    jpeg_abort((j_common_ptr) cinfo); /* use common routine */
 }
 
 

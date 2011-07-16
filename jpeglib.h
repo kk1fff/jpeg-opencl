@@ -12,7 +12,7 @@
 
 #ifndef JPEGLIB_H
 #define JPEGLIB_H
-
+#include <CL/opencl.h>
 /*
  * First we include the configuration files that record how this
  * installation of the JPEG library is set up.  jconfig.h can be
@@ -633,6 +633,8 @@ struct jpeg_decompress_struct {
 
   JBLOCK * decoded_mcus_base;
   JBLOCK * decoded_mcus_current;
+  cl_context current_cl_context;
+  cl_command_queue current_cl_queue;
 };
 
 
