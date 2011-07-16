@@ -4,10 +4,8 @@
 #define MAXJSAMPLE	255
 #define CENTERJSAMPLE	128
 typedef short JCOEF;
-typedef JCOEF * JCOEFPTR;
 typedef JCOEF JBLOCK[DCTSIZE2];	/* one block of coefficients */
 typedef unsigned char JSAMPLE;
-typedef JSAMPLE *JSAMPROW;	/* ptr to one image row of pixel samples. */
 typedef unsigned int JDIMENSION;
 typedef int INT32;
 typedef short INT16;
@@ -55,21 +53,22 @@ struct DecodeInfo
 #define DESCALE(x,n)  RIGHT_SHIFT((x) + (ONE << ((n)-1)), n)
 #define ONE	((INT32) 1)
 #define RIGHT_SHIFT(x,shft)	((x) >> (shft))
+#define RANGE_MASK  (MAXJSAMPLE * 4 + 3) /* 2 bits wider than legal samples */
 
 void inverse_DCT(__constant struct DecodeInfo * cinfo,
                 __constant struct ComponentInfo * compptr,
-                __constant JCOEFPTR coef_block,
-                __global JSAMPROW output_buf,
+                __constant JCOEF * coef_block,
+                __global JSAMPLE * output_buf,
                 JDIMENSION output_col)
 {
   INT32 tmp0, tmp1, tmp2, tmp3;
   INT32 tmp10, tmp11, tmp12, tmp13;
   INT32 z1, z2, z3, z4, z5;
-  JCOEFPTR inptr;
+  __constant JCOEF * inptr;
   ISLOW_MULT_TYPE * quantptr;
   int * wsptr;
-  JSAMPROW outptr;
-  JSAMPLE *range_limit = IDCT_range_limit(cinfo);
+  __global JSAMPLE * outptr;
+  __constant JSAMPLE *range_limit = IDCT_range_limit(cinfo);
   int ctr;
   int workspace[DCTSIZE2];	/* buffers data between passes */
 
@@ -300,14 +299,14 @@ void inverse_DCT(__constant struct DecodeInfo * cinfo,
 
 __kernel void idct(__constant struct DecodeInfo * cinfo,
                __constant JBLOCK * decoded_mcu_base,
-               __global JSAMPROW  output)
+               __global JSAMPLE *  output)
 {
    __constant struct ComponentInfo * compptr;
    JDIMENSION MCU_col_num;	/* index of current MCU within row */
    int  ci, xindex, yindex, yoffset,yheightoffset, useful_width;
    int last_MCU_col;
    JDIMENSION start_col, output_col;
-   __global JSAMPROW cur_row;
+   __global JSAMPLE *cur_row;
    __constant JBLOCK * sCurrentBlock;
 
    yheightoffset = get_global_id(0);
@@ -316,7 +315,7 @@ __kernel void idct(__constant struct DecodeInfo * cinfo,
    last_MCU_col = get_global_size(1) - 1;
 
    cur_row = output;
-   compptr = &decode_info.component_infos[ci];
+   compptr = &cinfo->component_infos[ci];
    cur_row += compptr->previous_image_size;
    cur_row +=  yheightoffset * compptr->DCT_scaled_size * compptr->row_buffer_size ;
    start_col = MCU_col_num * compptr->MCU_sample_width;
@@ -328,7 +327,7 @@ __kernel void idct(__constant struct DecodeInfo * cinfo,
        output_col = start_col;
        for (xindex = 0; xindex < useful_width; xindex++) {
            inverse_DCT (cinfo, compptr,
-                   (__constant JCOEFPTR) (sCurrentBlock +  xindex),
+                   (__constant JCOEF * ) (sCurrentBlock +  xindex),
                    cur_row, output_col);
            output_col += compptr->DCT_scaled_size;
        }

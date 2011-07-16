@@ -105,6 +105,7 @@ jpeg_CreateDecompress (j_decompress_ptr cinfo, int version, size_t structsize)
       {
           ERREXIT(cinfo,error_code);
       }
+      cinfo->current_device_id = device_id;
   }
 }
 

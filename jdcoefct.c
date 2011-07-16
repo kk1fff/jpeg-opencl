@@ -192,6 +192,27 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     return 1; // no error
 }
 
+static void print_build_log(j_decompress_ptr cinfo,cl_program program)
+{
+#define LOG_BUFFER_SIZE (1<<20)
+    cl_int errorcode;
+    char *log_buffer;
+    size_t log_size;
+    
+    log_buffer = malloc(LOG_BUFFER_SIZE);
+    if(!log_buffer)
+    {
+        return ;
+    }
+    errorcode = clGetProgramBuildInfo(program,cinfo->current_device_id,CL_PROGRAM_BUILD_LOG,
+                LOG_BUFFER_SIZE - 1,log_buffer,&log_size);
+    if(errorcode == CL_SUCCESS)
+    {
+        log_buffer[log_size] = 0;
+        printf("%s\n",log_buffer);
+    }
+    free(log_buffer);
+}
 
     METHODDEF(int)
 decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
@@ -207,6 +228,9 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     jpeg_component_info *compptr;
     inverse_DCT_method_ptr inverse_DCT;
     unsigned int componets_mcu_width;
+    cl_kernel my_kernel;
+    cl_program my_program;
+
 
     for (componets_mcu_width = 0 ,ci = 0; ci < cinfo->comps_in_scan; ci++) {
         compptr = cinfo->cur_comp_info[ci];
@@ -275,6 +299,33 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     cinfo->input_iMCU_row = cinfo->total_iMCU_rows;
     /* Completed the scan */
     (*cinfo->inputctl->finish_input_pass) (cinfo);
+
+    // testing the opencl's output
+    {
+        char * source_string;
+        cl_int error_code;
+
+        extern int read_all_bytes(const char * aFile,char ** aContent);
+        
+        if(0 == read_all_bytes("decode_idct.cl",&source_string))
+        {
+            ERREXIT(cinfo,1);
+        }
+        my_program = clCreateProgramWithSource(cinfo->current_cl_context,1,&source_string,NULL,&error_code);
+        if(error_code != CL_SUCCESS)
+        {
+            ERREXIT(cinfo,error_code);
+        }
+        error_code = clBuildProgram(my_program,1,&cinfo->current_device_id,NULL,NULL,NULL);
+        print_build_log(cinfo,my_program);
+        if(error_code != CL_SUCCESS)
+        {
+            ERREXIT(cinfo,error_code);
+        }
+
+        clReleaseProgram(my_program);
+    }
+
     return JPEG_SCAN_COMPLETED;
 
 }

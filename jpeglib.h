@@ -635,6 +635,7 @@ struct jpeg_decompress_struct {
   JBLOCK * decoded_mcus_current;
   cl_context current_cl_context;
   cl_command_queue current_cl_queue;
+  cl_device_id current_device_id;
 };
 
 
