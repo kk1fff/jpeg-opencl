@@ -12,7 +12,7 @@ typedef short INT16;
 typedef float FAST_FLOAT;
 typedef FAST_FLOAT FLOAT_MULT_TYPE; /* preferred floating type */
 #define MULTIPLIER  int		/* type for fastest integer multiply */
-typedef MULTIPLIER ISLOW_MULT_TYPE; /* short or int, whichever is faster */
+// typedef MULTIPLIER ISLOW_MULT_TYPE; /* short or int, whichever is faster */
 struct ComponentInfo
 {
     unsigned int MCU_width;
@@ -23,7 +23,7 @@ struct ComponentInfo
     unsigned int row_buffer_size;
     unsigned int previous_image_size;
     unsigned int previous_decoded_mcu_size; 
-    ISLOW_MULT_TYPE dct_table[DCTSIZE2];
+    FLOAT_MULT_TYPE dct_table[DCTSIZE2];
 };
 
 struct DecodeInfo
@@ -34,7 +34,7 @@ struct DecodeInfo
 };
 
 #define IDCT_range_limit(cinfo)  ((cinfo)->sample_range_limit + CENTERJSAMPLE)
-#define DEQUANTIZE(coef,quantval)  (((ISLOW_MULT_TYPE) (coef)) * (quantval))
+#define DEQUANTIZE(coef,quantval)  (((FAST_FLOAT) (coef)) * (quantval))
 #define CONST_BITS  13
 #define PASS1_BITS  2
 #define FIX_0_298631336  ((INT32)  2446)	/* FIX(0.298631336) */
@@ -310,18 +310,22 @@ void inverse_DCT(__global struct DecodeInfo * cinfo,
   FAST_FLOAT z5, z10, z11, z12, z13;
   __global JCOEF * inptr;
   __global FLOAT_MULT_TYPE * quantptr;
-  FAST_FLOAT * wsptr;
+  __local FAST_FLOAT * wsptr;
   __global JSAMPLE * outptr;
   __global JSAMPLE *range_limit = IDCT_range_limit(cinfo);
   int ctr;
-  FAST_FLOAT workspace[DCTSIZE2]; /* buffers data between passes */
+  __local FAST_FLOAT workspace[DCTSIZE2]; /* buffers data between passes */
 
   /* Pass 1: process columns from input, store into work array. */
 
   inptr = coef_block;
   quantptr = (__global FLOAT_MULT_TYPE *) compptr->dct_table;
   wsptr = workspace;
-  for (ctr = DCTSIZE; ctr > 0; ctr--) {
+  ctr = get_local_id(2);
+  inptr += ctr;
+  quantptr += ctr;
+  wsptr += ctr;
+
     /* Due to quantization, we will usually find that many of the input
      * coefficients are zero, especially the AC terms.  We can exploit this
      * by short-circuiting the IDCT calculation for any column in which all
@@ -347,72 +351,67 @@ void inverse_DCT(__global struct DecodeInfo * cinfo,
       wsptr[DCTSIZE*6] = dcval;
       wsptr[DCTSIZE*7] = dcval;
       
-      inptr++;			/* advance pointers to next column */
-      quantptr++;
-      wsptr++;
-      continue;
     }
-    
-    /* Even part */
+    else
+    {
+        /* Even part */
 
-    tmp0 = DEQUANTIZE(inptr[DCTSIZE*0], quantptr[DCTSIZE*0]);
-    tmp1 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
-    tmp2 = DEQUANTIZE(inptr[DCTSIZE*4], quantptr[DCTSIZE*4]);
-    tmp3 = DEQUANTIZE(inptr[DCTSIZE*6], quantptr[DCTSIZE*6]);
+        tmp0 = DEQUANTIZE(inptr[DCTSIZE*0], quantptr[DCTSIZE*0]);
+        tmp1 = DEQUANTIZE(inptr[DCTSIZE*2], quantptr[DCTSIZE*2]);
+        tmp2 = DEQUANTIZE(inptr[DCTSIZE*4], quantptr[DCTSIZE*4]);
+        tmp3 = DEQUANTIZE(inptr[DCTSIZE*6], quantptr[DCTSIZE*6]);
 
-    tmp10 = tmp0 + tmp2;	/* phase 3 */
-    tmp11 = tmp0 - tmp2;
+        tmp10 = tmp0 + tmp2;	/* phase 3 */
+        tmp11 = tmp0 - tmp2;
 
-    tmp13 = tmp1 + tmp3;	/* phases 5-3 */
-    tmp12 = (tmp1 - tmp3) * ((FAST_FLOAT) 1.414213562) - tmp13; /* 2*c4 */
+        tmp13 = tmp1 + tmp3;	/* phases 5-3 */
+        tmp12 = (tmp1 - tmp3) * ((FAST_FLOAT) 1.414213562) - tmp13; /* 2*c4 */
 
-    tmp0 = tmp10 + tmp13;	/* phase 2 */
-    tmp3 = tmp10 - tmp13;
-    tmp1 = tmp11 + tmp12;
-    tmp2 = tmp11 - tmp12;
-    
-    /* Odd part */
+        tmp0 = tmp10 + tmp13;	/* phase 2 */
+        tmp3 = tmp10 - tmp13;
+        tmp1 = tmp11 + tmp12;
+        tmp2 = tmp11 - tmp12;
+        
+        /* Odd part */
 
-    tmp4 = DEQUANTIZE(inptr[DCTSIZE*1], quantptr[DCTSIZE*1]);
-    tmp5 = DEQUANTIZE(inptr[DCTSIZE*3], quantptr[DCTSIZE*3]);
-    tmp6 = DEQUANTIZE(inptr[DCTSIZE*5], quantptr[DCTSIZE*5]);
-    tmp7 = DEQUANTIZE(inptr[DCTSIZE*7], quantptr[DCTSIZE*7]);
+        tmp4 = DEQUANTIZE(inptr[DCTSIZE*1], quantptr[DCTSIZE*1]);
+        tmp5 = DEQUANTIZE(inptr[DCTSIZE*3], quantptr[DCTSIZE*3]);
+        tmp6 = DEQUANTIZE(inptr[DCTSIZE*5], quantptr[DCTSIZE*5]);
+        tmp7 = DEQUANTIZE(inptr[DCTSIZE*7], quantptr[DCTSIZE*7]);
 
-    z13 = tmp6 + tmp5;		/* phase 6 */
-    z10 = tmp6 - tmp5;
-    z11 = tmp4 + tmp7;
-    z12 = tmp4 - tmp7;
+        z13 = tmp6 + tmp5;		/* phase 6 */
+        z10 = tmp6 - tmp5;
+        z11 = tmp4 + tmp7;
+        z12 = tmp4 - tmp7;
 
-    tmp7 = z11 + z13;		/* phase 5 */
-    tmp11 = (z11 - z13) * ((FAST_FLOAT) 1.414213562); /* 2*c4 */
+        tmp7 = z11 + z13;		/* phase 5 */
+        tmp11 = (z11 - z13) * ((FAST_FLOAT) 1.414213562); /* 2*c4 */
 
-    z5 = (z10 + z12) * ((FAST_FLOAT) 1.847759065); /* 2*c2 */
-    tmp10 = ((FAST_FLOAT) 1.082392200) * z12 - z5; /* 2*(c2-c6) */
-    tmp12 = ((FAST_FLOAT) -2.613125930) * z10 + z5; /* -2*(c2+c6) */
+        z5 = (z10 + z12) * ((FAST_FLOAT) 1.847759065); /* 2*c2 */
+        tmp10 = ((FAST_FLOAT) 1.082392200) * z12 - z5; /* 2*(c2-c6) */
+        tmp12 = ((FAST_FLOAT) -2.613125930) * z10 + z5; /* -2*(c2+c6) */
 
-    tmp6 = tmp12 - tmp7;	/* phase 2 */
-    tmp5 = tmp11 - tmp6;
-    tmp4 = tmp10 + tmp5;
+        tmp6 = tmp12 - tmp7;	/* phase 2 */
+        tmp5 = tmp11 - tmp6;
+        tmp4 = tmp10 + tmp5;
 
-    wsptr[DCTSIZE*0] = tmp0 + tmp7;
-    wsptr[DCTSIZE*7] = tmp0 - tmp7;
-    wsptr[DCTSIZE*1] = tmp1 + tmp6;
-    wsptr[DCTSIZE*6] = tmp1 - tmp6;
-    wsptr[DCTSIZE*2] = tmp2 + tmp5;
-    wsptr[DCTSIZE*5] = tmp2 - tmp5;
-    wsptr[DCTSIZE*4] = tmp3 + tmp4;
-    wsptr[DCTSIZE*3] = tmp3 - tmp4;
-
-    inptr++;			/* advance pointers to next column */
-    quantptr++;
-    wsptr++;
+        wsptr[DCTSIZE*0] = tmp0 + tmp7;
+        wsptr[DCTSIZE*7] = tmp0 - tmp7;
+        wsptr[DCTSIZE*1] = tmp1 + tmp6;
+        wsptr[DCTSIZE*6] = tmp1 - tmp6;
+        wsptr[DCTSIZE*2] = tmp2 + tmp5;
+        wsptr[DCTSIZE*5] = tmp2 - tmp5;
+        wsptr[DCTSIZE*4] = tmp3 + tmp4;
+        wsptr[DCTSIZE*3] = tmp3 - tmp4;
   }
+  barrier(CLK_LOCAL_MEM_FENCE);
   
   /* Pass 2: process rows from work array, store into output array. */
   /* Note that we must descale the results by a factor of 8 == 2**3. */
 
   wsptr = workspace;
-  for (ctr = 0; ctr < DCTSIZE; ctr++) {
+  wsptr +=  DCTSIZE * ctr;
+   {
     outptr = output_buf + ctr * compptr->row_buffer_size + output_col;
     /* Rows of zeroes can be exploited in the same way as we did with columns.
      * However, the column calculation has created many nonzero AC terms, so
@@ -470,7 +469,6 @@ void inverse_DCT(__global struct DecodeInfo * cinfo,
     outptr[3] = range_limit[(int) DESCALE((INT32) (tmp3 - tmp4), 3)
 			    & RANGE_MASK];
     
-    wsptr += DCTSIZE;		/* advance pointer to next row */
   }
 }
 
@@ -489,7 +487,7 @@ __kernel void idct(__global struct DecodeInfo * cinfo,
 
    yheightoffset = get_global_id(0);
    MCU_col_num = get_global_id(1);
-   ci = get_global_id(2);
+   ci = get_global_id(2) / DCTSIZE;
    MCUs_per_row = get_global_size(1);
    last_MCU_col = MCUs_per_row - 1;
 

@@ -235,23 +235,22 @@ struct DecodeInfo
    struct ComponentInfo component_infos[MAX_COMPONENT_INFO_COUNT]; 
 };
 
+extern int __stdcall QueryPerformanceCounter(
+  long long *
+);
+extern int __stdcall QueryPerformanceFrequency(
+  long long *
+);
 
     METHODDEF(int)
 decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
 {
     my_coef_ptr coef = (my_coef_ptr) cinfo->coef;
-    JDIMENSION MCU_col_num;	/* index of current MCU within row */
-    JDIMENSION last_MCU_col = cinfo->MCUs_per_row - 1;
-    JDIMENSION last_iMCU_row = cinfo->total_iMCU_rows - 1;
-    int  ci, xindex, yindex, yoffset,yheightoffset, useful_width;
-    JSAMPARRAY output_ptr;
-    JSAMPROW cur_row;
-    JDIMENSION start_col, output_col;
-    jpeg_component_info *compptr;
-    inverse_DCT_method_ptr inverse_DCT;
     unsigned int componets_mcu_width;
     cl_kernel my_kernel;
     cl_program my_program;
+    int ci;
+    jpeg_component_info * compptr;
 
     
     for (componets_mcu_width = 0 ,ci = 0; ci < cinfo->comps_in_scan; ci++) {
@@ -259,70 +258,6 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         componets_mcu_width += compptr->MCU_width * compptr->MCU_height;
     }
 
- //    for( yheightoffset = 0 ; yheightoffset < cinfo->total_iMCU_rows ; ++ yheightoffset)
- //    {
- //        /* Loop to process as much as one whole iMCU row */
- //        for (MCU_col_num = coef->MCU_ctr; MCU_col_num <= last_MCU_col; MCU_col_num++) {
- //            /* Determine where data should go in output_buf and do the IDCT thing.
- //             * We skip dummy blocks at the right and bottom edges (but blkn gets
- //             * incremented past them!).  Note the inner loop relies on having
- //             * allocated the MCU_buffer[] blocks sequentially.
- //             */
- //            for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
- //                JBLOCK * sCurrentBlock;
-
- //                compptr = cinfo->cur_comp_info[ci];
- //                /* Don't bother to IDCT an uninteresting component. */
- //                if (! compptr->component_needed) {
- //                    cinfo->decoded_mcus_current += compptr->MCU_blocks;
- //                    continue;
- //                }
- //                inverse_DCT = cinfo->idct->inverse_DCT[compptr->component_index];
- //                useful_width = (MCU_col_num < last_MCU_col) ? compptr->MCU_width
- //                    : compptr->last_col_width;
- //                {
- //                    int k;
- //                    for ( k = ci , cur_row = **output_buf ; k > 0 ; --k)
- //                    {
- //                        cur_row += compptr[ -k ].image_buffer_size;
- //                    }
- //                    cur_row +=  yheightoffset * compptr->DCT_scaled_size * compptr->row_buffer_size ;
- //                }
- //                output_ptr = &cur_row;
-
- //                start_col = MCU_col_num * compptr->MCU_sample_width;
- //                for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
- //                    output_col = start_col;
- //                    sCurrentBlock = cinfo->decoded_mcus_base + (( yheightoffset * cinfo->MCUs_per_row  + MCU_col_num) * componets_mcu_width) ;
- //                    {
- //                        int k;
- //                        for( k = ci ; k > 0 ; --k)
- //                        {
- //                            sCurrentBlock += compptr[-k].MCU_width;
- //                        }
- //                    }
- //                    for (xindex = 0; xindex < useful_width; xindex++) {
- //                        (*inverse_DCT) (cinfo, compptr,
- //                                (JCOEFPTR) (sCurrentBlock +  xindex),
- //                                output_ptr, output_col);
- //                        output_col += compptr->DCT_scaled_size;
- //                    }
- //                    sCurrentBlock += compptr->MCU_width;
- //                    cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
- //                }
- //            }
- //        }
- //        /* Completed an MCU row, but perhaps not an iMCU row */
- //        coef->MCU_ctr = 0;
-
- //        /* Completed the iMCU row, advance counters for next one */
- //    }
-    cinfo->output_iMCU_row = cinfo->total_iMCU_rows;
-    cinfo->input_iMCU_row = cinfo->total_iMCU_rows;
-    /* Completed the scan */
-    (*cinfo->inputctl->finish_input_pass) (cinfo);
-
-    // testing the opencl's output
     {
         char * source_string;
         cl_int error_code;
@@ -336,6 +271,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         cl_mem my_cl_output_buffer; 
         size_t work_dim[3];
         size_t local_work_dim[3];
+        long long t1,t2,freq;
         // JSAMPLE * from_cl_output;
 
         extern int read_all_bytes(const char * aFile,char ** aContent);
@@ -408,11 +344,13 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         error_code = clSetKernelArg(dct_kernel,2,sizeof(cl_mem),&my_cl_output_buffer);
         work_dim[0] = cinfo->total_iMCU_rows;
         work_dim[1] = cinfo->MCUs_per_row;
-        work_dim[2] = cinfo->comps_in_scan;
+        work_dim[2] = cinfo->comps_in_scan * DCTSIZE;
         local_work_dim[0] = 1;
         local_work_dim[1] = 1;
-        local_work_dim[2] = 1;
-
+        local_work_dim[2] = DCTSIZE;
+        
+        QueryPerformanceFrequency(&freq);
+        QueryPerformanceCounter(&t1);
         error_code = clEnqueueNDRangeKernel(cinfo->current_cl_queue,dct_kernel,
                     3,
                     NULL,
@@ -422,6 +360,8 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                     NULL,
                     NULL);
         clFinish(cinfo->current_cl_queue);
+        QueryPerformanceCounter(&t2);
+        printf("using %lf seconds\n",( (double) (t2 - t1)) / freq);
         // from_cl_output = malloc(sizeof(JSAMPLE) * previous_image_size);
         error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
                             my_cl_output_buffer,
@@ -444,6 +384,12 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         // memcpy(**output_buf,from_cl_output,sizeof(JSAMPLE) * previous_image_size);
         // free(from_cl_output);
     }
+    cinfo->output_iMCU_row = cinfo->total_iMCU_rows;
+    cinfo->input_iMCU_row = cinfo->total_iMCU_rows;
+    /* Completed the scan */
+    (*cinfo->inputctl->finish_input_pass) (cinfo);
+
+    // testing the opencl's output
 
     return JPEG_SCAN_COMPLETED;
 
