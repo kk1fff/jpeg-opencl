@@ -27,7 +27,6 @@ struct ComponentInfo
 struct DecodeInfo
 {
    unsigned int componets_mcu_width;
-   unsigned int MCUs_per_row;
    JSAMPLE  sample_range_limit[(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE)]; 
    struct ComponentInfo component_infos[MAX_COMPONENT_INFO_COUNT]; 
 };
@@ -55,20 +54,20 @@ struct DecodeInfo
 #define RIGHT_SHIFT(x,shft)	((x) >> (shft))
 #define RANGE_MASK  (MAXJSAMPLE * 4 + 3) /* 2 bits wider than legal samples */
 
-void inverse_DCT(__constant struct DecodeInfo * cinfo,
-                __constant struct ComponentInfo * compptr,
-                __constant JCOEF * coef_block,
+void inverse_DCT(__global struct DecodeInfo * cinfo,
+                __global struct ComponentInfo * compptr,
+                __global JCOEF * coef_block,
                 __global JSAMPLE * output_buf,
                 JDIMENSION output_col)
 {
   INT32 tmp0, tmp1, tmp2, tmp3;
   INT32 tmp10, tmp11, tmp12, tmp13;
   INT32 z1, z2, z3, z4, z5;
-  __constant JCOEF * inptr;
+  __global JCOEF * inptr;
   ISLOW_MULT_TYPE * quantptr;
   int * wsptr;
   __global JSAMPLE * outptr;
-  __constant JSAMPLE *range_limit = IDCT_range_limit(cinfo);
+  __global JSAMPLE *range_limit = IDCT_range_limit(cinfo);
   int ctr;
   int workspace[DCTSIZE2];	/* buffers data between passes */
 
@@ -297,22 +296,24 @@ void inverse_DCT(__constant struct DecodeInfo * cinfo,
   }
 }
 
-__kernel void idct(__constant struct DecodeInfo * cinfo,
-               __constant JBLOCK * decoded_mcu_base,
+__kernel void idct(__global struct DecodeInfo * cinfo,
+               __global JBLOCK * decoded_mcu_base,
                __global JSAMPLE *  output)
 {
-   __constant struct ComponentInfo * compptr;
+   __global struct ComponentInfo * compptr;
    JDIMENSION MCU_col_num;	/* index of current MCU within row */
    int  ci, xindex, yindex, yoffset,yheightoffset, useful_width;
    int last_MCU_col;
    JDIMENSION start_col, output_col;
    __global JSAMPLE *cur_row;
-   __constant JBLOCK * sCurrentBlock;
+   __global JBLOCK * sCurrentBlock;
+   int MCUs_per_row;
 
    yheightoffset = get_global_id(0);
    MCU_col_num = get_global_id(1);
    ci = get_global_id(2);
-   last_MCU_col = get_global_size(1) - 1;
+   MCUs_per_row = get_global_size(1);
+   last_MCU_col = MCUs_per_row - 1;
 
    cur_row = output;
    compptr = &cinfo->component_infos[ci];
@@ -321,17 +322,20 @@ __kernel void idct(__constant struct DecodeInfo * cinfo,
    start_col = MCU_col_num * compptr->MCU_sample_width;
    useful_width = (MCU_col_num < last_MCU_col) ? compptr->MCU_width
        : compptr->last_col_width;
-   sCurrentBlock = decoded_mcu_base + (( yheightoffset * cinfo->MCUs_per_row  + MCU_col_num) * cinfo->componets_mcu_width) ;
+   sCurrentBlock = decoded_mcu_base + (( yheightoffset * MCUs_per_row  + MCU_col_num) * cinfo->componets_mcu_width) ;
    sCurrentBlock += compptr->previous_decoded_mcu_size;
    for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
        output_col = start_col;
        for (xindex = 0; xindex < useful_width; xindex++) {
-           inverse_DCT (cinfo, compptr,
-                   (__constant JCOEF * ) (sCurrentBlock +  xindex),
-                   cur_row, output_col);
+           // inverse_DCT (cinfo, compptr,
+           //         (__global JCOEF * ) (sCurrentBlock +  xindex),
+           //         cur_row, output_col);
+           // cur_row[0] = 'a';
            output_col += compptr->DCT_scaled_size;
        }
        sCurrentBlock += compptr->MCU_width;
-       cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
+       // cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
    }
+   cur_row [0] = 'a';
 }
+

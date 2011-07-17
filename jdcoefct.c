@@ -214,6 +214,26 @@ static void print_build_log(j_decompress_ptr cinfo,cl_program program)
     free(log_buffer);
 }
 
+struct ComponentInfo
+{
+    unsigned int MCU_width;
+    unsigned int MCU_height;
+    unsigned int last_col_width;
+    unsigned int MCU_sample_width;
+    unsigned int DCT_scaled_size;
+    unsigned int row_buffer_size;
+    unsigned int previous_image_size;
+    unsigned int previous_decoded_mcu_size; 
+    int dct_table[DCTSIZE2];
+};
+
+#define MAX_COMPONENT_INFO_COUNT 5
+struct DecodeInfo
+{
+   unsigned int componets_mcu_width;
+   JSAMPLE  sample_range_limit[(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE)]; 
+   struct ComponentInfo component_infos[MAX_COMPONENT_INFO_COUNT]; 
+};
     METHODDEF(int)
 decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
 {
@@ -304,6 +324,17 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     {
         char * source_string;
         cl_int error_code;
+        struct DecodeInfo * decode_info;
+        int i ;
+        int previous_image_size;
+        int previous_decoded_mcu_size;
+        cl_kernel dct_kernel;
+        cl_mem constant_decode_info;
+        cl_mem constant_decoded_mcu;
+        cl_mem my_cl_output_buffer; 
+        size_t work_dim[3];
+        size_t local_work_dim[3];
+        JSAMPLE * from_cl_output;
 
         extern int read_all_bytes(const char * aFile,char ** aContent);
         
@@ -316,14 +347,98 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         {
             ERREXIT(cinfo,error_code);
         }
+        free_all_bytes(source_string); 
         error_code = clBuildProgram(my_program,1,&cinfo->current_device_id,NULL,NULL,NULL);
         print_build_log(cinfo,my_program);
         if(error_code != CL_SUCCESS)
         {
             ERREXIT(cinfo,error_code);
         }
+        decode_info = (struct DecodeInfo*)malloc(sizeof(struct DecodeInfo));
+        if(!decode_info)
+        {
+            ERREXIT(cinfo,JERR_OUT_OF_MEMORY);
+        }
+        decode_info->componets_mcu_width = componets_mcu_width;
+        memcpy(decode_info->sample_range_limit,cinfo->sample_range_limit,(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE) * sizeof(JSAMPLE));
+        previous_image_size = 0;
+        previous_decoded_mcu_size = 0 ;
+        for( i = 0 ; i < cinfo->comps_in_scan ; ++i)
+        {
+            struct ComponentInfo * compptr_info;
+            
+            compptr_info = &decode_info->component_infos[i];
+            compptr = cinfo->cur_comp_info[i];
+            
+            compptr_info->MCU_width = compptr->MCU_width;
+            compptr_info->MCU_height = compptr->MCU_height;
+            compptr_info->last_col_width = compptr->last_col_width;
+            compptr_info->MCU_sample_width = compptr->MCU_sample_width;
+            compptr_info->DCT_scaled_size = compptr->DCT_scaled_size;
+            compptr_info->row_buffer_size = compptr->row_buffer_size;
+            compptr_info->previous_image_size = previous_image_size;
+            compptr_info->previous_decoded_mcu_size = previous_decoded_mcu_size;
+            memcpy(compptr_info->dct_table,compptr->dct_table,sizeof(int) * DCTSIZE2);
 
+            previous_image_size += compptr->image_buffer_size;
+            previous_decoded_mcu_size += compptr->MCU_width;
+        }
+
+        constant_decode_info = clCreateBuffer(cinfo->current_cl_context,
+                CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
+                sizeof(struct DecodeInfo),
+                &decode_info,
+                &error_code);
+        constant_decoded_mcu = clCreateBuffer(cinfo->current_cl_context,
+                CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
+                sizeof(JBLOCK) *  cinfo->blocks_in_MCU * 
+                coef->MCU_rows_per_iMCU_row * cinfo->MCUs_per_row * cinfo->MCU_rows_in_scan,
+                cinfo->decoded_mcus_base,
+                &error_code);
+        my_cl_output_buffer = clCreateBuffer(cinfo->current_cl_context,
+                CL_MEM_READ_WRITE,
+                sizeof(JSAMPLE) * previous_image_size,
+                NULL,
+                &error_code);
+        dct_kernel = clCreateKernel(my_program,"idct",&error_code);
+        error_code = clSetKernelArg(dct_kernel,0,sizeof(cl_mem),&constant_decode_info);
+        error_code = clSetKernelArg(dct_kernel,1,sizeof(cl_mem),&constant_decoded_mcu);
+        error_code = clSetKernelArg(dct_kernel,2,sizeof(cl_mem),&my_cl_output_buffer);
+        work_dim[0] = cinfo->total_iMCU_rows;
+        work_dim[1] = cinfo->MCUs_per_row;
+        work_dim[2] = cinfo->comps_in_scan;
+        local_work_dim[0] = 1;
+        local_work_dim[1] = 1;
+        local_work_dim[2] = 1;
+
+        error_code = clEnqueueNDRangeKernel(cinfo->current_cl_queue,dct_kernel,
+                    3,
+                    NULL,
+                    work_dim,
+                    local_work_dim,
+                    NULL,
+                    NULL,
+                    NULL);
+        from_cl_output = malloc(sizeof(JSAMPLE) * previous_image_size);
+        error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
+                            my_cl_output_buffer,
+                            CL_TRUE,
+                            0,
+                            sizeof(JSAMPLE) * previous_image_size,
+                            from_cl_output,
+                            0,
+                            NULL,
+                            NULL);
+        clReleaseMemObject(constant_decode_info);
+        clReleaseMemObject(constant_decoded_mcu);
+        clReleaseMemObject(my_cl_output_buffer);
+        clReleaseKernel(dct_kernel);
         clReleaseProgram(my_program);
+        if(0 != memcmp(from_cl_output,**output_buf,sizeof(JSAMPLE) * previous_image_size))
+        {
+            fprintf(stderr,"LIN:Failed\n");
+        }
+        free(from_cl_output);
     }
 
     return JPEG_SCAN_COMPLETED;
