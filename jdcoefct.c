@@ -234,6 +234,8 @@ struct DecodeInfo
    JSAMPLE  sample_range_limit[(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE)]; 
    struct ComponentInfo component_infos[MAX_COMPONENT_INFO_COUNT]; 
 };
+
+
     METHODDEF(int)
 decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
 {
@@ -251,70 +253,70 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     cl_kernel my_kernel;
     cl_program my_program;
 
-
+    
     for (componets_mcu_width = 0 ,ci = 0; ci < cinfo->comps_in_scan; ci++) {
         compptr = cinfo->cur_comp_info[ci];
         componets_mcu_width += compptr->MCU_width * compptr->MCU_height;
     }
 
-    for( yheightoffset = 0 ; yheightoffset < cinfo->total_iMCU_rows ; ++ yheightoffset)
-    {
-        /* Loop to process as much as one whole iMCU row */
-        for (MCU_col_num = coef->MCU_ctr; MCU_col_num <= last_MCU_col; MCU_col_num++) {
-            /* Determine where data should go in output_buf and do the IDCT thing.
-             * We skip dummy blocks at the right and bottom edges (but blkn gets
-             * incremented past them!).  Note the inner loop relies on having
-             * allocated the MCU_buffer[] blocks sequentially.
-             */
-            for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
-                JBLOCK * sCurrentBlock;
+ //    for( yheightoffset = 0 ; yheightoffset < cinfo->total_iMCU_rows ; ++ yheightoffset)
+ //    {
+ //        /* Loop to process as much as one whole iMCU row */
+ //        for (MCU_col_num = coef->MCU_ctr; MCU_col_num <= last_MCU_col; MCU_col_num++) {
+ //            /* Determine where data should go in output_buf and do the IDCT thing.
+ //             * We skip dummy blocks at the right and bottom edges (but blkn gets
+ //             * incremented past them!).  Note the inner loop relies on having
+ //             * allocated the MCU_buffer[] blocks sequentially.
+ //             */
+ //            for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+ //                JBLOCK * sCurrentBlock;
 
-                compptr = cinfo->cur_comp_info[ci];
-                /* Don't bother to IDCT an uninteresting component. */
-                if (! compptr->component_needed) {
-                    cinfo->decoded_mcus_current += compptr->MCU_blocks;
-                    continue;
-                }
-                inverse_DCT = cinfo->idct->inverse_DCT[compptr->component_index];
-                useful_width = (MCU_col_num < last_MCU_col) ? compptr->MCU_width
-                    : compptr->last_col_width;
-                {
-                    int k;
-                    for ( k = ci , cur_row = **output_buf ; k > 0 ; --k)
-                    {
-                        cur_row += compptr[ -k ].image_buffer_size;
-                    }
-                    cur_row +=  yheightoffset * compptr->DCT_scaled_size * compptr->row_buffer_size ;
-                }
-                output_ptr = &cur_row;
+ //                compptr = cinfo->cur_comp_info[ci];
+ //                /* Don't bother to IDCT an uninteresting component. */
+ //                if (! compptr->component_needed) {
+ //                    cinfo->decoded_mcus_current += compptr->MCU_blocks;
+ //                    continue;
+ //                }
+ //                inverse_DCT = cinfo->idct->inverse_DCT[compptr->component_index];
+ //                useful_width = (MCU_col_num < last_MCU_col) ? compptr->MCU_width
+ //                    : compptr->last_col_width;
+ //                {
+ //                    int k;
+ //                    for ( k = ci , cur_row = **output_buf ; k > 0 ; --k)
+ //                    {
+ //                        cur_row += compptr[ -k ].image_buffer_size;
+ //                    }
+ //                    cur_row +=  yheightoffset * compptr->DCT_scaled_size * compptr->row_buffer_size ;
+ //                }
+ //                output_ptr = &cur_row;
 
-                start_col = MCU_col_num * compptr->MCU_sample_width;
-                for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
-                    output_col = start_col;
-                    sCurrentBlock = cinfo->decoded_mcus_base + (( yheightoffset * cinfo->MCUs_per_row  + MCU_col_num) * componets_mcu_width) ;
-                    {
-                        int k;
-                        for( k = ci ; k > 0 ; --k)
-                        {
-                            sCurrentBlock += compptr[-k].MCU_width;
-                        }
-                    }
-                    for (xindex = 0; xindex < useful_width; xindex++) {
-                        (*inverse_DCT) (cinfo, compptr,
-                                (JCOEFPTR) (sCurrentBlock +  xindex),
-                                output_ptr, output_col);
-                        output_col += compptr->DCT_scaled_size;
-                    }
-                    sCurrentBlock += compptr->MCU_width;
-                    cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
-                }
-            }
-        }
-        /* Completed an MCU row, but perhaps not an iMCU row */
-        coef->MCU_ctr = 0;
+ //                start_col = MCU_col_num * compptr->MCU_sample_width;
+ //                for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
+ //                    output_col = start_col;
+ //                    sCurrentBlock = cinfo->decoded_mcus_base + (( yheightoffset * cinfo->MCUs_per_row  + MCU_col_num) * componets_mcu_width) ;
+ //                    {
+ //                        int k;
+ //                        for( k = ci ; k > 0 ; --k)
+ //                        {
+ //                            sCurrentBlock += compptr[-k].MCU_width;
+ //                        }
+ //                    }
+ //                    for (xindex = 0; xindex < useful_width; xindex++) {
+ //                        (*inverse_DCT) (cinfo, compptr,
+ //                                (JCOEFPTR) (sCurrentBlock +  xindex),
+ //                                output_ptr, output_col);
+ //                        output_col += compptr->DCT_scaled_size;
+ //                    }
+ //                    sCurrentBlock += compptr->MCU_width;
+ //                    cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
+ //                }
+ //            }
+ //        }
+ //        /* Completed an MCU row, but perhaps not an iMCU row */
+ //        coef->MCU_ctr = 0;
 
-        /* Completed the iMCU row, advance counters for next one */
-    }
+ //        /* Completed the iMCU row, advance counters for next one */
+ //    }
     cinfo->output_iMCU_row = cinfo->total_iMCU_rows;
     cinfo->input_iMCU_row = cinfo->total_iMCU_rows;
     /* Completed the scan */
@@ -334,7 +336,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         cl_mem my_cl_output_buffer; 
         size_t work_dim[3];
         size_t local_work_dim[3];
-        JSAMPLE * from_cl_output;
+        // JSAMPLE * from_cl_output;
 
         extern int read_all_bytes(const char * aFile,char ** aContent);
         
@@ -419,13 +421,14 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                     NULL,
                     NULL,
                     NULL);
-        from_cl_output = malloc(sizeof(JSAMPLE) * previous_image_size);
+        clFinish(cinfo->current_cl_queue);
+        // from_cl_output = malloc(sizeof(JSAMPLE) * previous_image_size);
         error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
                             my_cl_output_buffer,
                             CL_TRUE,
                             0,
                             sizeof(JSAMPLE) * previous_image_size,
-                            from_cl_output,
+                            **output_buf,
                             0,
                             NULL,
                             NULL);
@@ -434,11 +437,12 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         clReleaseMemObject(my_cl_output_buffer);
         clReleaseKernel(dct_kernel);
         clReleaseProgram(my_program);
-        if(0 != memcmp(from_cl_output,**output_buf,sizeof(JSAMPLE) * previous_image_size))
-        {
-            fprintf(stderr,"LIN:Failed\n");
-        }
-        free(from_cl_output);
+        // if(0 != memcmp(from_cl_output,**output_buf,sizeof(JSAMPLE) * previous_image_size))
+        // {
+        //     fprintf(stderr,"LIN:Failed\n");
+        // }
+        // memcpy(**output_buf,from_cl_output,sizeof(JSAMPLE) * previous_image_size);
+        // free(from_cl_output);
     }
 
     return JPEG_SCAN_COMPLETED;

@@ -543,6 +543,7 @@ main (int argc, char **argv)
     /* Adjust default decompression parameters by re-parsing the options */
     file_index = parse_switches(&cinfo, argc, argv, 0, TRUE);
 
+    cinfo.dct_method = JDCT_FLOAT;
     /* Initialize the output module now to let it override any crucial
      * option settings (for instance, GIF wants to force color quantization).
      */
