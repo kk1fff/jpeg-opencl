@@ -64,7 +64,7 @@ void inverse_DCT(__global struct DecodeInfo * cinfo,
   INT32 tmp10, tmp11, tmp12, tmp13;
   INT32 z1, z2, z3, z4, z5;
   __global JCOEF * inptr;
-  ISLOW_MULT_TYPE * quantptr;
+  __global ISLOW_MULT_TYPE * quantptr;
   int * wsptr;
   __global JSAMPLE * outptr;
   __global JSAMPLE *range_limit = IDCT_range_limit(cinfo);
@@ -76,7 +76,7 @@ void inverse_DCT(__global struct DecodeInfo * cinfo,
   /* furthermore, we scale the results by 2**PASS1_BITS. */
 
   inptr = coef_block;
-  quantptr = (ISLOW_MULT_TYPE *) compptr->dct_table;
+  quantptr = (__global ISLOW_MULT_TYPE *) compptr->dct_table;
   wsptr = workspace;
   for (ctr = DCTSIZE; ctr > 0; ctr--) {
     /* Due to quantization, we will usually find that many of the input
@@ -109,7 +109,6 @@ void inverse_DCT(__global struct DecodeInfo * cinfo,
       wsptr++;
       continue;
     }
-    
     /* Even part: reverse the even part of the forward DCT. */
     /* The rotator is sqrt(2)*c(-6). */
     
@@ -327,15 +326,13 @@ __kernel void idct(__global struct DecodeInfo * cinfo,
    for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
        output_col = start_col;
        for (xindex = 0; xindex < useful_width; xindex++) {
-           // inverse_DCT (cinfo, compptr,
-           //         (__global JCOEF * ) (sCurrentBlock +  xindex),
-           //         cur_row, output_col);
-           // cur_row[0] = 'a';
+           inverse_DCT (cinfo, compptr,
+                   (__global JCOEF * ) (sCurrentBlock +  xindex),
+                   cur_row, output_col);
            output_col += compptr->DCT_scaled_size;
        }
        sCurrentBlock += compptr->MCU_width;
-       // cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
+       cur_row += compptr->DCT_scaled_size * compptr->row_buffer_size ;
    }
-   cur_row [0] = 'a';
 }
 

@@ -387,7 +387,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         constant_decode_info = clCreateBuffer(cinfo->current_cl_context,
                 CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
                 sizeof(struct DecodeInfo),
-                &decode_info,
+                decode_info,
                 &error_code);
         constant_decoded_mcu = clCreateBuffer(cinfo->current_cl_context,
                 CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
