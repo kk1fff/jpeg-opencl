@@ -487,7 +487,7 @@ __kernel void idct(__global struct DecodeInfo * cinfo,
 
    yheightoffset = get_global_id(0);
    MCU_col_num = get_global_id(1);
-   ci = get_global_id(2) / DCTSIZE;
+   ci = get_group_id(2);
    MCUs_per_row = get_global_size(1);
    last_MCU_col = MCUs_per_row - 1;
 
