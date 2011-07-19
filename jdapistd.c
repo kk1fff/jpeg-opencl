@@ -106,7 +106,7 @@ output_pass_setup (j_decompress_ptr cinfo)
       /* Crank through the dummy pass */
       /* Process some data */
       (*cinfo->main->process_data) (cinfo, (JSAMPARRAY) NULL,
-              NULL, (JDIMENSION) 0);
+              &cinfo->output_scanline, (JDIMENSION) 0);
     /* Finish up dummy pass, and set up for another one */
     (*cinfo->master->finish_output_pass) (cinfo);
     (*cinfo->master->prepare_for_output_pass) (cinfo);

@@ -403,52 +403,59 @@ process_data_context_main (j_decompress_ptr cinfo,
     main->iMCU_row_ctr++;	/* count rows received */
   }
 
-  /* Postprocessor typically will not swallow all the input data it is handed
-   * in one call (due to filling the output buffer first).  Must be prepared
-   * to exit and restart.  This switch lets us keep track of how far we got.
-   * Note that each case falls through to the next on successful completion.
-   */
-  switch (main->context_state) {
-  case CTX_POSTPONED_ROW:
-    /* Call postprocessor using previously set pointers for postponed row */
-    (*cinfo->post->post_process_data) (cinfo, main->xbuffer[main->whichptr],
-			&main->rowgroup_ctr, main->rowgroups_avail,
-			output_buf, out_row_ctr, out_rows_avail);
-    if (main->rowgroup_ctr < main->rowgroups_avail)
-      return;			/* Need to suspend */
-    main->context_state = CTX_PREPARE_FOR_IMCU;
-    if (*out_row_ctr >= out_rows_avail)
-      return;			/* Postprocessor exactly filled output buf */
-    /*FALLTHROUGH*/
-  case CTX_PREPARE_FOR_IMCU:
-    /* Prepare to process first M-1 row groups of this iMCU row */
-    main->rowgroup_ctr = 0;
-    main->rowgroups_avail = (JDIMENSION) (cinfo->min_DCT_scaled_size - 1);
-    /* Check for bottom of image: if so, tweak pointers to "duplicate"
-     * the last sample row, and adjust rowgroups_avail to ignore padding rows.
-     */
-    if (main->iMCU_row_ctr == cinfo->total_iMCU_rows)
-      set_bottom_pointers(cinfo);
-    main->context_state = CTX_PROCESS_IMCU;
-    /*FALLTHROUGH*/
-  case CTX_PROCESS_IMCU:
-    /* Call postprocessor using previously set pointers */
-    (*cinfo->post->post_process_data) (cinfo, main->xbuffer[main->whichptr],
-			&main->rowgroup_ctr, main->rowgroups_avail,
-			output_buf, out_row_ctr, out_rows_avail);
-    if (main->rowgroup_ctr < main->rowgroups_avail)
-      return;			/* Need to suspend */
-    /* After the first iMCU, change wraparound pointers to normal state */
-    if (main->iMCU_row_ctr == 1)
-      set_wraparound_pointers(cinfo);
-    /* Prepare to load new iMCU row using other xbuffer list */
-    main->whichptr ^= 1;	/* 0=>1 or 1=>0 */
-    main->buffer_full = FALSE;
-    /* Still need to process last row group of this iMCU row, */
-    /* which is saved at index M+1 of the other xbuffer */
-    main->rowgroup_ctr = (JDIMENSION) (cinfo->min_DCT_scaled_size + 1);
-    main->rowgroups_avail = (JDIMENSION) (cinfo->min_DCT_scaled_size + 2);
-    main->context_state = CTX_POSTPONED_ROW;
+  while (cinfo->output_scanline < cinfo->output_height) {
+
+      if (! main->buffer_full) {
+          main->buffer_full = TRUE;	/* OK, we have an iMCU row to work with */
+          main->iMCU_row_ctr++;	/* count rows received */
+      }
+      /* Postprocessor typically will not swallow all the input data it is handed
+       * in one call (due to filling the output buffer first).  Must be prepared
+       * to exit and restart.  This switch lets us keep track of how far we got.
+       * Note that each case falls through to the next on successful completion.
+       */
+      switch (main->context_state) {
+          case CTX_POSTPONED_ROW:
+              /* Call postprocessor using previously set pointers for postponed row */
+              (*cinfo->post->post_process_data) (cinfo, main->xbuffer[main->whichptr],
+                      &main->rowgroup_ctr, main->rowgroups_avail,
+                      output_buf, out_row_ctr, out_rows_avail);
+              if (main->rowgroup_ctr < main->rowgroups_avail)
+                  continue;			/* Need to suspend */
+              main->context_state = CTX_PREPARE_FOR_IMCU;
+              if (*out_row_ctr >= out_rows_avail)
+                  continue;			/* Postprocessor exactly filled output buf */
+              /*FALLTHROUGH*/
+          case CTX_PREPARE_FOR_IMCU:
+              /* Prepare to process first M-1 row groups of this iMCU row */
+              main->rowgroup_ctr = 0;
+              main->rowgroups_avail = (JDIMENSION) (cinfo->min_DCT_scaled_size - 1);
+              /* Check for bottom of image: if so, tweak pointers to "duplicate"
+               * the last sample row, and adjust rowgroups_avail to ignore padding rows.
+               */
+              if (main->iMCU_row_ctr == cinfo->total_iMCU_rows)
+                  set_bottom_pointers(cinfo);
+              main->context_state = CTX_PROCESS_IMCU;
+              /*FALLTHROUGH*/
+          case CTX_PROCESS_IMCU:
+              /* Call postprocessor using previously set pointers */
+              (*cinfo->post->post_process_data) (cinfo, main->xbuffer[main->whichptr],
+                      &main->rowgroup_ctr, main->rowgroups_avail,
+                      output_buf, out_row_ctr, out_rows_avail);
+              if (main->rowgroup_ctr < main->rowgroups_avail)
+                  continue;			/* Need to suspend */
+              /* After the first iMCU, change wraparound pointers to normal state */
+              if (main->iMCU_row_ctr == 1)
+                  set_wraparound_pointers(cinfo);
+              /* Prepare to load new iMCU row using other xbuffer list */
+              main->whichptr ^= 1;	/* 0=>1 or 1=>0 */
+              main->buffer_full = FALSE;
+              /* Still need to process last row group of this iMCU row, */
+              /* which is saved at index M+1 of the other xbuffer */
+              main->rowgroup_ctr = (JDIMENSION) (cinfo->min_DCT_scaled_size + 1);
+              main->rowgroups_avail = (JDIMENSION) (cinfo->min_DCT_scaled_size + 2);
+              main->context_state = CTX_POSTPONED_ROW;
+      }
   }
 }
 
