@@ -364,6 +364,7 @@ h2v2_fancy_upsample (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 	inptr1 = input_data[inrow-1];
       else			/* next nearest is row below */
 	inptr1 = input_data[inrow+1];
+    printf("inptr0 = %p,inptr1 = %p\n",inptr0,inptr1);
       outptr = output_data[outrow++];
 
       /* Special case for first column */

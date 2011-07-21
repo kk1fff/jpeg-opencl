@@ -316,7 +316,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
             compptr_info->row_buffer_size = compptr->row_buffer_size;
             compptr_info->previous_image_size = previous_image_size;
             compptr_info->previous_decoded_mcu_size = previous_decoded_mcu_size;
-            memcpy(compptr_info->dct_table,compptr->dct_table,sizeof(int) * DCTSIZE2);
+            memcpy(compptr_info->dct_table,compptr->dct_table,sizeof(float) * DCTSIZE2);
 
             previous_image_size += compptr->image_buffer_size;
             previous_decoded_mcu_size += compptr->MCU_width;
