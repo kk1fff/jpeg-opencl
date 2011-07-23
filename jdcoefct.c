@@ -57,6 +57,9 @@ typedef struct {
     int * coef_bits_latch;
 #define SAVED_COEFS  6		/* we save coef_bits[0..5] */
 #endif
+    JBLOCK * decoded_mcus_base;
+    JBLOCK * decoded_mcus_current;
+
 } my_coef_controller;
 
 typedef my_coef_controller * my_coef_ptr;
@@ -154,14 +157,14 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     int yoffset;
     int rows;
 
-    cinfo->decoded_mcus_base = cinfo->mem->alloc_large((j_common_ptr)cinfo,JPOOL_IMAGE,
+    coef->decoded_mcus_base = cinfo->mem->alloc_large((j_common_ptr)cinfo,JPOOL_IMAGE,
             sizeof(JBLOCK) * cinfo->blocks_in_MCU 
             * coef->MCU_rows_per_iMCU_row * cinfo->MCUs_per_row * cinfo->MCU_rows_in_scan);
-    if(!cinfo->decoded_mcus_base)
+    if(!coef->decoded_mcus_base)
     {
         return JPEG_SUSPENDED;
     }
-    cinfo->decoded_mcus_current = cinfo->decoded_mcus_base;
+    coef->decoded_mcus_current = coef->decoded_mcus_base;
     for(rows = 0 ; rows < cinfo->MCU_rows_in_scan ; ++ rows)
     {
         for (yoffset = coef->MCU_vert_offset; yoffset < coef->MCU_rows_per_iMCU_row;
@@ -177,16 +180,16 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                 }
                 {
                     int i;
-                    for (i = 0 ; i < cinfo->blocks_in_MCU ; ++i, ++cinfo->decoded_mcus_current)
+                    for (i = 0 ; i < cinfo->blocks_in_MCU ; ++i, ++coef->decoded_mcus_current)
                     {
                         JBLOCK * sCurrent = coef->MCU_buffer[i];
-                        memcpy(cinfo->decoded_mcus_current,sCurrent, sizeof(JBLOCK));
+                        memcpy(coef->decoded_mcus_current,sCurrent, sizeof(JBLOCK));
                     }
                 }
             }
         }
     }
-    cinfo->decoded_mcus_current = cinfo->decoded_mcus_base;
+    coef->decoded_mcus_current = coef->decoded_mcus_base;
     coef->pub.decompress_data = decompress_onepass2;
     decompress_onepass2(cinfo,output_buf);
     return 1; // no error
@@ -331,7 +334,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                 CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
                 sizeof(JBLOCK) *  cinfo->blocks_in_MCU * 
                 coef->MCU_rows_per_iMCU_row * cinfo->MCUs_per_row * cinfo->MCU_rows_in_scan,
-                cinfo->decoded_mcus_base,
+                coef->decoded_mcus_base,
                 &error_code);
         my_cl_output_buffer = clCreateBuffer(cinfo->current_cl_context,
                 CL_MEM_READ_WRITE,

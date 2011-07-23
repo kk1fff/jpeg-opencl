@@ -631,8 +631,6 @@ struct jpeg_decompress_struct {
   struct jpeg_color_deconverter * cconvert;
   struct jpeg_color_quantizer * cquantize;
 
-  JBLOCK * decoded_mcus_base;
-  JBLOCK * decoded_mcus_current;
   cl_context current_cl_context;
   cl_command_queue current_cl_queue;
   cl_device_id current_device_id;
