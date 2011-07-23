@@ -494,7 +494,7 @@ __kernel void idct(__global struct DecodeInfo * cinfo,
    cur_row = output;
    compptr = &cinfo->component_infos[ci];
    cur_row += compptr->previous_image_size;
-   cur_row +=  yheightoffset * compptr->DCT_scaled_size * compptr->row_buffer_size ;
+   cur_row +=  yheightoffset * compptr->DCT_scaled_size * compptr->row_buffer_size * compptr->MCU_height ;
    start_col = MCU_col_num * compptr->MCU_sample_width;
    useful_width = (MCU_col_num < last_MCU_col) ? compptr->MCU_width
        : compptr->last_col_width;

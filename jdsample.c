@@ -345,50 +345,49 @@ METHODDEF(void)
 h2v2_fancy_upsample (j_decompress_ptr cinfo, jpeg_component_info * compptr,
 		     JSAMPARRAY input_data, JSAMPARRAY * output_data_ptr)
 {
-  JSAMPARRAY output_data = *output_data_ptr;
-  register JSAMPROW inptr0, inptr1, outptr;
+    JSAMPARRAY output_data = *output_data_ptr;
+    register JSAMPROW inptr0, inptr1, outptr;
 #if BITS_IN_JSAMPLE == 8
-  register int thiscolsum, lastcolsum, nextcolsum;
+    register int thiscolsum, lastcolsum, nextcolsum;
 #else
-  register INT32 thiscolsum, lastcolsum, nextcolsum;
+    register INT32 thiscolsum, lastcolsum, nextcolsum;
 #endif
-  register JDIMENSION colctr;
-  int inrow, outrow, v;
+    register JDIMENSION colctr;
+    int inrow, outrow, v;
 
-  inrow = outrow = 0;
-  while (outrow < cinfo->max_v_samp_factor) {
-    for (v = 0; v < 2; v++) {
-      /* inptr0 points to nearest input row, inptr1 points to next nearest */
-      inptr0 = input_data[inrow];
-      if (v == 0)		/* next nearest is row above */
-	inptr1 = input_data[inrow-1];
-      else			/* next nearest is row below */
-	inptr1 = input_data[inrow+1];
-    printf("inptr0 = %p,inptr1 = %p\n",inptr0,inptr1);
-      outptr = output_data[outrow++];
+    inrow = outrow = 0;
+    while (outrow < cinfo->max_v_samp_factor) {
+        for (v = 0; v < 2; v++) {
+            /* inptr0 points to nearest input row, inptr1 points to next nearest */
+            inptr0 = input_data[inrow];
+            if (v == 0)		/* next nearest is row above */
+                inptr1 = input_data[inrow-1];
+            else			/* next nearest is row below */
+                inptr1 = input_data[inrow+1];
+            outptr = output_data[outrow++];
 
-      /* Special case for first column */
-      thiscolsum = GETJSAMPLE(*inptr0++) * 3 + GETJSAMPLE(*inptr1++);
-      nextcolsum = GETJSAMPLE(*inptr0++) * 3 + GETJSAMPLE(*inptr1++);
-      *outptr++ = (JSAMPLE) ((thiscolsum * 4 + 8) >> 4);
-      *outptr++ = (JSAMPLE) ((thiscolsum * 3 + nextcolsum + 7) >> 4);
-      lastcolsum = thiscolsum; thiscolsum = nextcolsum;
+            /* Special case for first column */
+            thiscolsum = GETJSAMPLE(*inptr0++) * 3 + GETJSAMPLE(*inptr1++);
+            nextcolsum = GETJSAMPLE(*inptr0++) * 3 + GETJSAMPLE(*inptr1++);
+            *outptr++ = (JSAMPLE) ((thiscolsum * 4 + 8) >> 4);
+            *outptr++ = (JSAMPLE) ((thiscolsum * 3 + nextcolsum + 7) >> 4);
+            lastcolsum = thiscolsum; thiscolsum = nextcolsum;
 
-      for (colctr = compptr->downsampled_width - 2; colctr > 0; colctr--) {
-	/* General case: 3/4 * nearer pixel + 1/4 * further pixel in each */
-	/* dimension, thus 9/16, 3/16, 3/16, 1/16 overall */
-	nextcolsum = GETJSAMPLE(*inptr0++) * 3 + GETJSAMPLE(*inptr1++);
-	*outptr++ = (JSAMPLE) ((thiscolsum * 3 + lastcolsum + 8) >> 4);
-	*outptr++ = (JSAMPLE) ((thiscolsum * 3 + nextcolsum + 7) >> 4);
-	lastcolsum = thiscolsum; thiscolsum = nextcolsum;
-      }
+            for (colctr = compptr->downsampled_width - 2; colctr > 0; colctr--) {
+                /* General case: 3/4 * nearer pixel + 1/4 * further pixel in each */
+                /* dimension, thus 9/16, 3/16, 3/16, 1/16 overall */
+                nextcolsum = GETJSAMPLE(*inptr0++) * 3 + GETJSAMPLE(*inptr1++);
+                *outptr++ = (JSAMPLE) ((thiscolsum * 3 + lastcolsum + 8) >> 4);
+                *outptr++ = (JSAMPLE) ((thiscolsum * 3 + nextcolsum + 7) >> 4);
+                lastcolsum = thiscolsum; thiscolsum = nextcolsum;
+            }
 
-      /* Special case for last column */
-      *outptr++ = (JSAMPLE) ((thiscolsum * 3 + lastcolsum + 8) >> 4);
-      *outptr++ = (JSAMPLE) ((thiscolsum * 4 + 7) >> 4);
+            /* Special case for last column */
+            *outptr++ = (JSAMPLE) ((thiscolsum * 3 + lastcolsum + 8) >> 4);
+            *outptr++ = (JSAMPLE) ((thiscolsum * 4 + 7) >> 4);
+        }
+        inrow++;
     }
-    inrow++;
-  }
 }
 
 
