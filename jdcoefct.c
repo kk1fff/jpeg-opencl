@@ -157,13 +157,15 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     int yoffset;
     int rows;
 
-    coef->decoded_mcus_base = cinfo->mem->alloc_large((j_common_ptr)cinfo,JPOOL_IMAGE,
-            sizeof(JBLOCK) * cinfo->blocks_in_MCU 
-            * coef->MCU_rows_per_iMCU_row * cinfo->MCUs_per_row * cinfo->MCU_rows_in_scan);
+    size_t decoded_mucs_size = sizeof(JBLOCK) * cinfo->blocks_in_MCU 
+            * coef->MCU_rows_per_iMCU_row * cinfo->MCUs_per_row * cinfo->MCU_rows_in_scan;
+    coef->decoded_mcus_base = cinfo->mem->alloc_large((j_common_ptr)cinfo,JPOOL_IMAGE, decoded_mucs_size);
     if(!coef->decoded_mcus_base)
     {
         return JPEG_SUSPENDED;
     }
+    jzero_far((void FAR *) coef->decoded_mcus_base, decoded_mucs_size);
+
     coef->decoded_mcus_current = coef->decoded_mcus_base;
     for(rows = 0 ; rows < cinfo->MCU_rows_in_scan ; ++ rows)
     {
@@ -172,19 +174,16 @@ decompress_onepass (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
             for (MCU_col_num = coef->MCU_ctr; MCU_col_num <= last_MCU_col;
                     MCU_col_num++) {
                 /* Try to fetch an MCU.  Entropy decoder expects buffer to be zeroed. */
-                jzero_far((void FAR *) coef->MCU_buffer[0],
-                        (size_t) (cinfo->blocks_in_MCU * SIZEOF(JBLOCK)));
+                {
+                    int i ;
+                    for(i = 0 ; i < cinfo->blocks_in_MCU ; ++i,++coef->decoded_mcus_current)
+                    {
+                        coef->MCU_buffer[i] = coef->decoded_mcus_current;
+                    }
+                }
                 if (! (*cinfo->entropy->decode_mcu) (cinfo, coef->MCU_buffer)) {
                     /* this is deadly status */
                     return JPEG_SUSPENDED;
-                }
-                {
-                    int i;
-                    for (i = 0 ; i < cinfo->blocks_in_MCU ; ++i, ++coef->decoded_mcus_current)
-                    {
-                        JBLOCK * sCurrent = coef->MCU_buffer[i];
-                        memcpy(coef->decoded_mcus_current,sCurrent, sizeof(JBLOCK));
-                    }
                 }
             }
         }
