@@ -274,15 +274,17 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         size_t work_dim[3];
         size_t local_work_dim[3];
         long long t1,t2,freq;
+        size_t file_size;
         // JSAMPLE * from_cl_output;
 
         extern int read_all_bytes(const char * aFile,char ** aContent);
         
-        if(0 == read_all_bytes("decode_idct.cl",&source_string))
+        if(0 == (file_size = read_all_bytes("decode_idct.clc",&source_string)) )
         {
             ERREXIT(cinfo,1);
         }
-        my_program = clCreateProgramWithSource(cinfo->current_cl_context,1,&source_string,NULL,&error_code);
+        my_program = clCreateProgramWithBinary(cinfo->current_cl_context,1,&cinfo->current_device_id,&file_size
+                ,&source_string,NULL,&error_code);
         if(error_code != CL_SUCCESS)
         {
             ERREXIT(cinfo,error_code);
