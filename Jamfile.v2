@@ -2,6 +2,7 @@ project jpeg
 ;
 
 lib opencl : : <name>opencl <search>. ;
+obj ReadFile : ReadFile.c ;
 # jcapimin.c jcapistd.c jccoefct.c jccolor.c jcinit.c jcdctmgr.c jchuff.c
 exe jpeg_decompress : opencl djpeg.c 
 jdapimin.c
@@ -42,9 +43,11 @@ jcomapi.c
 cdjpeg.c
 jmemmgr.c
 jutils.c
-ReadFile.c
+ReadFile
 ;
 
+exe cl-compiler : cl-compiler/cl-compiler.c ReadFile opencl : <include>.
+;
 
-install build : jpeg_decompress 
+install build : jpeg_decompress cl-compiler
 ;
