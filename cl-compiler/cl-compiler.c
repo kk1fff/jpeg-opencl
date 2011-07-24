@@ -166,7 +166,7 @@ static cl_int my_write_binary_to_file_handle(cl_program program,FILE * file)
         return CL_OUT_OF_HOST_MEMORY;
     }
     memset(binary,0,binary_size);
-    error_code = clGetProgramInfo(program,CL_PROGRAM_BINARIES,binary_size,binary,NULL);
+    error_code = clGetProgramInfo(program,CL_PROGRAM_BINARIES,sizeof(size_t),&binary,NULL);
     if(error_code != CL_SUCCESS)
     {
         print_error("Failed to get program's binary ,with error code %d\n",error_code);
