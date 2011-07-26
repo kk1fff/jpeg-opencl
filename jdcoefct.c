@@ -237,12 +237,6 @@ struct DecodeInfo
    struct ComponentInfo component_infos[MAX_COMPONENT_INFO_COUNT]; 
 };
 
-extern int __stdcall QueryPerformanceCounter(
-  long long *
-);
-extern int __stdcall QueryPerformanceFrequency(
-  long long *
-);
 
     METHODDEF(int)
 decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
@@ -273,7 +267,6 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         cl_mem my_cl_output_buffer; 
         size_t work_dim[3];
         size_t local_work_dim[3];
-        long long t1,t2,freq;
         size_t file_size;
         // JSAMPLE * from_cl_output;
 
@@ -353,8 +346,6 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         local_work_dim[1] = 1;
         local_work_dim[2] = DCTSIZE;
         
-        QueryPerformanceFrequency(&freq);
-        QueryPerformanceCounter(&t1);
         error_code = clEnqueueNDRangeKernel(cinfo->current_cl_queue,dct_kernel,
                     3,
                     NULL,
@@ -364,8 +355,6 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                     NULL,
                     NULL);
         clFinish(cinfo->current_cl_queue);
-        QueryPerformanceCounter(&t2);
-        printf("using %lf seconds\n",( (double) (t2 - t1)) / freq);
         // from_cl_output = malloc(sizeof(JSAMPLE) * previous_image_size);
         error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
                             my_cl_output_buffer,

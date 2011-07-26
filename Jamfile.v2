@@ -1,7 +1,7 @@
 project jpeg
 ;
 
-lib opencl : : <name>opencl <search>. ;
+lib opencl : : <name>OpenCL <search>. ;
 obj ReadFile : ReadFile.c ;
 # jcapimin.c jcapistd.c jccoefct.c jccolor.c jcinit.c jcdctmgr.c jchuff.c
 exe jpeg_decompress : opencl djpeg.c 
