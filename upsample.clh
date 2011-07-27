@@ -2,9 +2,10 @@
 struct upsample_info
 {
     int max_v_samp_factor;
-    int downsampled_width;
-    size_t row_buffer_size;
 };
+
+
+#define GETJSAMPLE(value)  ((int) (value) & 0xFF)
 
 
 typedef unsigned char JSAMPLE;
