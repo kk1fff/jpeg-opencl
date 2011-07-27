@@ -1,0 +1,10 @@
+#define MAX_COMPONENT_COUNT 3
+struct upsample_info
+{
+    int max_v_samp_factor;
+    int downsampled_width;
+    size_t row_buffer_size;
+};
+
+
+typedef unsigned char JSAMPLE;
