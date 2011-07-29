@@ -1,7 +1,7 @@
 #include "upsample.clh"
 
 __kernel
-void h2v1_fancy_upsample( __global JSAMPLE * input_buf,
+void upsample( __global JSAMPLE * input_buf,
             __global JSAMPLE * output_buf)
 {
    __global JSAMPLE * input_ptr;
