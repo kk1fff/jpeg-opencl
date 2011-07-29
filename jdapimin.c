@@ -19,7 +19,7 @@
 #define JPEG_INTERNALS
 #include "jinclude.h"
 #include "jpeglib.h"
-
+#include "jopenclstore.h"
 
 /*
  * Initialization of a JPEG decompression object.
@@ -107,6 +107,13 @@ jpeg_CreateDecompress (j_decompress_ptr cinfo, int version, size_t structsize)
       }
       cinfo->current_device_id = device_id;
   }
+
+  // init cl store
+  cinfo->cl_store = j_opencl_store_create();
+  if(!cinfo->cl_store)
+  {
+      ERREXIT(cinfo,JERR_OUT_OF_MEMORY);
+  }
 }
 
 
@@ -117,6 +124,7 @@ jpeg_CreateDecompress (j_decompress_ptr cinfo, int version, size_t structsize)
 GLOBAL(void)
 jpeg_destroy_decompress (j_decompress_ptr cinfo)
 {
+    j_opencl_store_destroy(cinfo->cl_store);
     clReleaseCommandQueue(cinfo->current_cl_queue);
     clReleaseContext(cinfo->current_cl_context);
     jpeg_destroy((j_common_ptr) cinfo); /* use common routine */

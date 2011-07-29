@@ -43,6 +43,7 @@ jcomapi.c
 cdjpeg.c
 jmemmgr.c
 jutils.c
+jopenclstore.c
 ReadFile
 ;
 

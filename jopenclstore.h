@@ -1,5 +1,5 @@
 #pragma once
-#include <cl/cl.h>
+#include <cl/opencl.h>
 
 typedef void (* pfn_opencl_store_free_data)(void *);
 struct j_opencl_store;
@@ -16,4 +16,8 @@ cl_program j_opencl_store_get_program(struct j_opencl_store * store,size_t state
 int j_opencl_store_set_state_data(struct j_opencl_store * store , size_t state,void * data,pfn_opencl_store_free_data free_fun);
 
 void * j_opencl_store_get_state_data(struct j_opencl_store * store,size_t state);
+
+int j_opencl_store_append_buffer(struct j_opencl_store * store,size_t state,cl_mem buffer);
+
+cl_mem j_opencl_store_get_buffer(struct j_opencl_store * store,size_t state,int index);
 
