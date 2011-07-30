@@ -340,18 +340,16 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                     NULL,
                     NULL,
                     NULL);
-        clFinish(cinfo->current_cl_queue);
         j_opencl_store_append_buffer(cinfo->cl_store,0,my_cl_output_buffer);
-        // from_cl_output = malloc(sizeof(JSAMPLE) * previous_image_size);
-        error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
-                            my_cl_output_buffer,
-                            CL_TRUE,
-                            0,
-                            sizeof(JSAMPLE) * previous_image_size,
-                            **output_buf,
-                            0,
-                            NULL,
-                            NULL);
+        // error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
+        //                     my_cl_output_buffer,
+        //                     CL_TRUE,
+        //                     0,
+        //                     sizeof(JSAMPLE) * previous_image_size,
+        //                     **output_buf,
+        //                     0,
+        //                     NULL,
+        //                     NULL);
         clReleaseMemObject(constant_decode_info);
         clReleaseMemObject(constant_decoded_mcu);
         clReleaseKernel(dct_kernel);

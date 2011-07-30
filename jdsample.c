@@ -98,18 +98,62 @@ sep_upsample (j_decompress_ptr cinfo,
   JDIMENSION num_rows;
 
   /* Fill the conversion buffer, if it's empty */
-  if (upsample->next_row_out >= cinfo->max_v_samp_factor) {
-    for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
-	 ci++, compptr++) {
-      /* Invoke per-component upsample method.  Notice we pass a POINTER
-       * to color_buf[ci], so that fullsize_upsample can change it.
-       */
-      (*upsample->methods[ci]) (cinfo, compptr,
-	input_buf[ci] + (*in_row_group_ctr * upsample->rowgroup_height[ci]),
-	upsample->color_buf + ci);
-    }
-    upsample->next_row_out = 0;
+  if(!j_opencl_store_get_buffer(cinfo->cl_store,1,0))
+  {
+      cl_int error_code;
+      cl_mem full_buf;
+      cl_mem input_buffer;
+      int buffer_offset;
+      int out_image_size;
+
+      full_buf = clCreateBuffer(cinfo->current_cl_context,
+                CL_MEM_READ_WRITE,
+                cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
+                NULL,
+                &error_code);
+      if(error_code != CL_SUCCESS)
+      {
+          ERREXIT(cinfo,error_code);
+      }
+      input_buffer = j_opencl_store_get_buffer(cinfo->cl_store,0,0);
+        
+      out_image_size = cinfo->output_width * cinfo->output_height;
+      for (ci = 0, buffer_offset = 0 ,compptr = cinfo->comp_info; ci < cinfo->num_components;
+              ci++, compptr++,buffer_offset += out_image_size) {
+          cl_mem sub_input_buffer;
+          cl_mem sub_output_buffer;
+          /* Invoke per-component upsample method.  Notice we pass a POINTER
+           * to color_buf[ci], so that fullsize_upsample can change it.
+           */
+          // (*upsample->methods[ci]) (cinfo, compptr,
+          //         input_buf[ci] + (*in_row_group_ctr * upsample->rowgroup_height[ci]),
+          //         upsample->color_buf + ci);
+          if(upsample->methods[ci] == fullsize_upsample)
+          {
+              error_code = clEnqueueCopyBuffer(cinfo->current_cl_queue,
+                            input_buf,
+                            full_buf,
+                            compptr->previous_image_size,
+                            buffer_offset,
+                            out_image_size,
+                            NULL,
+                            0,
+                            NULL);
+              if(error_code != CL_SUCCESS)
+              {
+                  ERREXIT(cinfo,error_code);
+              }
+              continue;
+          }
+
+
+            
+      }
+      clReleaseMemObject(full_buf);
+      upsample->next_row_out = 0;
+
   }
+
 
   /* Color-convert and emit rows */
 

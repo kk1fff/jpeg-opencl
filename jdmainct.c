@@ -486,33 +486,33 @@ jinit_d_main_controller (j_decompress_ptr cinfo, boolean need_full_buffer)
       compptr->dimesion_size += rgroup * 4;
       sTotoalDimensionSize += compptr->dimesion_size;
   }
-  sSampleArrays = (JSAMPARRAY)(*cinfo->mem->alloc_small)((j_common_ptr)cinfo,
-          JPOOL_IMAGE,sTotoalDimensionSize *  sizeof(JSAMPROW) );
-  sSampleBuffer = (JSAMPROW)(*cinfo->mem->alloc_large)((j_common_ptr)cinfo,JPOOL_IMAGE,sTotalImageSize * sizeof(JSAMPLE));
+  // sSampleArrays = (JSAMPARRAY)(*cinfo->mem->alloc_small)((j_common_ptr)cinfo,
+  //         JPOOL_IMAGE,sTotoalDimensionSize *  sizeof(JSAMPROW) );
+  // sSampleBuffer = (JSAMPROW)(*cinfo->mem->alloc_large)((j_common_ptr)cinfo,JPOOL_IMAGE,sTotalImageSize * sizeof(JSAMPLE));
 
-  for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
-       ci++, compptr++) {
-    int i;
-    int image_loop_count;
-    rgroup = (compptr->v_samp_factor * compptr->DCT_scaled_size) /
-        cinfo->min_DCT_scaled_size; /* height of a row group of component */
-    for(i = 0 ; i < 2 * rgroup ; ++i , ++sSampleArrays)
-    {
-        sSampleArrays[0] = sSampleBuffer;
-    }
-    image_loop_count = compptr->dimesion_size -  rgroup * 4;
-    
-    // buffers of different components are in separated memory regions
-    main->buffer[ci] = sSampleArrays;
+  // for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+  //      ci++, compptr++) {
+  //   int i;
+  //   int image_loop_count;
+  //   rgroup = (compptr->v_samp_factor * compptr->DCT_scaled_size) /
+  //       cinfo->min_DCT_scaled_size; /* height of a row group of component */
+  //   for(i = 0 ; i < 2 * rgroup ; ++i , ++sSampleArrays)
+  //   {
+  //       sSampleArrays[0] = sSampleBuffer;
+  //   }
+  //   image_loop_count = compptr->dimesion_size -  rgroup * 4;
+  //   
+  //   // buffers of different components are in separated memory regions
+  //   main->buffer[ci] = sSampleArrays;
 
-    for (i = 0 ; i < image_loop_count ; ++i,++sSampleArrays, sSampleBuffer += compptr->row_buffer_size)
-    {
-        *sSampleArrays = sSampleBuffer;
-    }
+  //   for (i = 0 ; i < image_loop_count ; ++i,++sSampleArrays, sSampleBuffer += compptr->row_buffer_size)
+  //   {
+  //       *sSampleArrays = sSampleBuffer;
+  //   }
 
-    for(i = 0 ; i < 2 * rgroup ; ++i , ++sSampleArrays)
-    {
-        sSampleArrays[0] = sSampleArrays[ -1 - i ] ;
-    }
-  }
+  //   for(i = 0 ; i < 2 * rgroup ; ++i , ++sSampleArrays)
+  //   {
+  //       sSampleArrays[0] = sSampleArrays[ -1 - i ] ;
+  //   }
+  // }
 }
