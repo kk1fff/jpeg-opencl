@@ -409,6 +409,7 @@ struct jpeg_compress_struct {
 };
 
 struct j_opencl_store;
+struct j_opencl_prog_pool;
 /* Master record for a decompression instance */
 
 struct jpeg_decompress_struct {
@@ -635,7 +636,7 @@ struct jpeg_decompress_struct {
   cl_command_queue current_cl_queue;
   cl_device_id current_device_id;
   struct j_opencl_store * cl_store;
-
+  struct j_opencl_prog_pool * cl_prog_pool;
 };
 
 

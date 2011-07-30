@@ -20,6 +20,7 @@
 #include "jinclude.h"
 #include "jpeglib.h"
 #include "jopenclstore.h"
+#include "jopenclprogpool.h"
 
 /*
  * Initialization of a JPEG decompression object.
@@ -114,6 +115,12 @@ jpeg_CreateDecompress (j_decompress_ptr cinfo, int version, size_t structsize)
   {
       ERREXIT(cinfo,JERR_OUT_OF_MEMORY);
   }
+  // init cl prog pool
+  cinfo->cl_prog_pool = j_opencl_prog_pool_create(cinfo);
+  if(!cinfo->cl_prog_pool)
+  {
+      ERREXIT(cinfo,JERR_OUT_OF_MEMORY);
+  }
 }
 
 
@@ -125,6 +132,7 @@ GLOBAL(void)
 jpeg_destroy_decompress (j_decompress_ptr cinfo)
 {
     j_opencl_store_destroy(cinfo->cl_store);
+    j_opencl_prog_pool_destroy(cinfo->cl_prog_pool);
     clReleaseCommandQueue(cinfo->current_cl_queue);
     clReleaseContext(cinfo->current_cl_context);
     jpeg_destroy((j_common_ptr) cinfo); /* use common routine */

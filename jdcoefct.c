@@ -17,6 +17,8 @@
 #define JPEG_INTERNALS
 #include "jinclude.h"
 #include "jpeglib.h"
+#include "jopenclprogpool.h"
+#include "jopenclstore.h"
 
 /* Block smoothing is only applicable for progressive JPEG, so: */
 #ifndef D_PROGRESSIVE_SUPPORTED
@@ -255,7 +257,6 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
     }
 
     {
-        char * source_string;
         cl_int error_code;
         struct DecodeInfo * decode_info;
         int i ;
@@ -267,24 +268,9 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
         cl_mem my_cl_output_buffer; 
         size_t work_dim[3];
         size_t local_work_dim[3];
-        size_t file_size;
         // JSAMPLE * from_cl_output;
 
-        extern int read_all_bytes(const char * aFile,char ** aContent);
-        
-        if(0 == (file_size = read_all_bytes("decode_idct.clc",&source_string)) )
-        {
-            ERREXIT(cinfo,1);
-        }
-        my_program = clCreateProgramWithBinary(cinfo->current_cl_context,1,&cinfo->current_device_id,&file_size
-                ,&source_string,NULL,&error_code);
-        if(error_code != CL_SUCCESS)
-        {
-            ERREXIT(cinfo,error_code);
-        }
-        free_all_bytes(source_string); 
-        error_code = clBuildProgram(my_program,1,&cinfo->current_device_id,NULL,NULL,NULL);
-        print_build_log(cinfo,my_program);
+        error_code = j_opencl_prog_pool_get_idct(cinfo->cl_prog_pool,&my_program);
         if(error_code != CL_SUCCESS)
         {
             ERREXIT(cinfo,error_code);
@@ -355,6 +341,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                     NULL,
                     NULL);
         clFinish(cinfo->current_cl_queue);
+        j_opencl_store_append_buffer(cinfo->cl_store,0,my_cl_output_buffer);
         // from_cl_output = malloc(sizeof(JSAMPLE) * previous_image_size);
         error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
                             my_cl_output_buffer,
@@ -367,15 +354,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                             NULL);
         clReleaseMemObject(constant_decode_info);
         clReleaseMemObject(constant_decoded_mcu);
-        clReleaseMemObject(my_cl_output_buffer);
         clReleaseKernel(dct_kernel);
-        clReleaseProgram(my_program);
-        // if(0 != memcmp(from_cl_output,**output_buf,sizeof(JSAMPLE) * previous_image_size))
-        // {
-        //     fprintf(stderr,"LIN:Failed\n");
-        // }
-        // memcpy(**output_buf,from_cl_output,sizeof(JSAMPLE) * previous_image_size);
-        // free(from_cl_output);
     }
     cinfo->output_iMCU_row = cinfo->total_iMCU_rows;
     cinfo->input_iMCU_row = cinfo->total_iMCU_rows;

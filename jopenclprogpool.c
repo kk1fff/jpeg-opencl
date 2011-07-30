@@ -51,8 +51,8 @@ struct j_opencl_prog_pool * j_opencl_prog_pool_create(j_decompress_ptr cinfo)
     pool = (struct j_opencl_prog_pool*)malloc(sizeof(struct j_opencl_prog_pool));
     if(pool)
     {
-        pool->cinfo = cinfo;
         memset(pool,0,sizeof(struct j_opencl_prog_pool));
+        pool->cinfo = cinfo;
     }
     return pool;
 }   
@@ -80,6 +80,10 @@ static cl_int create_with_file_name(j_decompress_ptr cinfo,cl_program * pprog,co
     *pprog = clCreateProgramWithBinary(cinfo->current_cl_context,1,&cinfo->current_device_id,&file_size
                 ,&file_content,NULL,&error_code);
     free_all_bytes(file_content);
+    if(error_code == CL_SUCCESS)
+    {
+        error_code = clBuildProgram(*pprog,1,&cinfo->current_device_id,NULL,NULL,NULL);
+    }
     return error_code;
 }
 
