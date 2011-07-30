@@ -16,7 +16,6 @@
 
 struct j_opencl_store_element
 {
-    cl_program program;
     void * data;
     pfn_opencl_store_free_data free_fun;
     cl_mem  buffers[MAX_BUFFER_COUNT];
@@ -46,11 +45,6 @@ void j_opencl_store_destroy(struct j_opencl_store * store)
         struct j_opencl_store_element * element;
 
         element =  &store->elements[i];
-
-        if(element->program)
-        {
-            clReleaseProgram(element->program);
-        }
         if(element->data && element->free_fun)
         {
             element->free_fun(element->data);
@@ -66,27 +60,6 @@ void j_opencl_store_destroy(struct j_opencl_store * store)
         }
     }
     free(store);
-}
-
-int j_opencl_store_set_program(struct j_opencl_store * store,size_t state,cl_program program)
-{
-    ELE_FROM_STATE(store,state,return 1  );
-    if(element->program)
-    {
-        // not support to set program more than once
-        return 1;
-    }
-    
-    element->program = program;
-    return 0;
-}
-        
-
-cl_program j_opencl_store_get_program(struct j_opencl_store * store,size_t state)
-{
-    ELE_FROM_STATE(store,state,return 0 );
-
-    return element->program;
 }
 
 int j_opencl_store_set_state_data(struct j_opencl_store * store , size_t state,void * data,pfn_opencl_store_free_data free_fun)
