@@ -340,7 +340,11 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
                     NULL,
                     NULL,
                     NULL);
-        j_opencl_store_append_buffer(cinfo->cl_store,0,my_cl_output_buffer);
+        if(j_opencl_store_new_session(cinfo->cl_store))
+        {
+            ERREXIT(cinfo,JERR_OUT_OF_MEMORY);
+        }
+        j_opencl_store_append_buffer(cinfo->cl_store,my_cl_output_buffer);
         // error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
         //                     my_cl_output_buffer,
         //                     CL_TRUE,

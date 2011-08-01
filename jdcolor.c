@@ -11,6 +11,8 @@
 #define JPEG_INTERNALS
 #include "jinclude.h"
 #include "jpeglib.h"
+#include "jopenclstore.h"
+#include "jopenclprogpool.h"
 
 
 /* Private subobject */
@@ -125,8 +127,82 @@ struct ConverterInfo
  * offset required on that side.
  */
 
+
 METHODDEF(void)
 ycc_rgb_convert (j_decompress_ptr cinfo,
+		 JSAMPIMAGE input_buf, JDIMENSION input_row,
+		 JSAMPARRAY output_buf, int num_rows)
+{
+    cl_program ycc_to_rgb;
+    cl_mem color_buf;
+    cl_mem cl_input_buf;
+    cl_kernel my_kernel;
+    cl_int error_code;
+    size_t global_work_size[2];
+
+    color_buf = NULL;
+    error_code = j_opencl_prog_pool_get_ycc_to_rgb(cinfo->cl_prog_pool,&ycc_to_rgb);
+    if(error_code != CL_SUCCESS)
+    {
+        ERREXIT(cinfo,error_code);
+    }
+    color_buf = clCreateBuffer(cinfo->current_cl_context,
+            CL_MEM_READ_WRITE,
+            cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
+            NULL,
+            &error_code);
+    if(error_code != CL_SUCCESS)
+    {
+        goto EXIT2;
+    }
+    my_kernel = clCreateKernel(ycc_to_rgb,"convert",&error_code);
+
+    if(error_code != CL_SUCCESS)
+    {
+        goto EXIT2;
+    }
+    // TODO : set arg 1 of my_kernel
+
+    cl_input_buf = j_opencl_store_get_buffer(cinfo->cl_store,0);
+    error_code = clSetKernelArg(my_kernel,1,sizeof(cl_mem),&cl_input_buf);
+
+    if(error_code != CL_SUCCESS)
+    {
+        goto EXIT2;
+    }
+    error_code = clSetKernelArg(my_kernel,2,sizeof(cl_mem),&color_buf);
+    if(error_code != CL_SUCCESS)
+    {
+        goto EXIT2;
+    }
+    global_work_size [0] = cinfo->output_height;
+    global_work_size [1] = cinfo->output_width;
+    error_code = clEnqueueNDRangeKernel(cinfo->current_cl_queue,my_kernel,
+            2,
+            NULL,
+            global_work_size,
+            NULL,
+            NULL,
+            NULL,
+            NULL);
+    j_opencl_store_new_session(cinfo->cl_store);
+    j_opencl_store_append_buffer(cinfo->cl_store,color_buf);
+    color_buf = NULL;
+EXIT2:
+    if(color_buf)
+    {
+        clReleaseMemObject(color_buf);
+    }
+    j_opencl_store_pop_session(cinfo->cl_store);
+
+    if(CL_SUCCESS != error_code)
+    {
+        ERREXIT(cinfo,error_code);
+    }
+}
+
+METHODDEF(void)
+_ycc_rgb_convert (j_decompress_ptr cinfo,
 		 JSAMPIMAGE input_buf, JDIMENSION input_row,
 		 JSAMPARRAY output_buf, int num_rows)
 {

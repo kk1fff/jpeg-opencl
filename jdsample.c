@@ -21,6 +21,8 @@
 #define JPEG_INTERNALS
 #include "jinclude.h"
 #include "jpeglib.h"
+#include "jopenclstore.h"
+#include "jopenclprogpool.h"
 
 
 /* Pointer to routine to upsample a single component */
@@ -77,239 +79,6 @@ start_pass_upsample (j_decompress_ptr cinfo)
 }
 
 
-/*
- * Control routine to do upsampling (and color conversion).
- *
- * In this version we upsample each component independently.
- * We upsample one row group into the conversion buffer, then apply
- * color conversion a row at a time.
- */
-
-    METHODDEF(void)
-sep_upsample (j_decompress_ptr cinfo,
-        JSAMPIMAGE input_buf, JDIMENSION *in_row_group_ctr,
-        JDIMENSION in_row_groups_avail,
-        JSAMPARRAY output_buf, JDIMENSION *out_row_ctr,
-        JDIMENSION out_rows_avail)
-{
-    cl_mem full_buf;
-    my_upsample_ptr upsample = (my_upsample_ptr) cinfo->upsample;
-    int ci;
-    jpeg_component_info * compptr;
-    JDIMENSION num_rows;
-
-    /* Fill the conversion buffer, if it's empty */
-    if(!j_opencl_store_get_buffer(cinfo->cl_store,1,0))
-    {
-        cl_int error_code;
-        cl_mem input_buffer;
-        int buffer_offset;
-        int out_image_size;
-
-        full_buf = clCreateBuffer(cinfo->current_cl_context,
-                CL_MEM_READ_WRITE,
-                cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
-                NULL,
-                &error_code);
-        if(error_code != CL_SUCCESS)
-        {
-            ERREXIT(cinfo,error_code);
-        }
-        input_buffer = j_opencl_store_get_buffer(cinfo->cl_store,0,0);
-
-        out_image_size = cinfo->output_width * cinfo->output_height;
-        for (ci = 0, buffer_offset = 0 ,compptr = cinfo->comp_info; ci < cinfo->num_components;
-                ci++, compptr++,buffer_offset += out_image_size) {
-            cl_mem sub_input_buffer;
-            cl_mem sub_output_buffer;
-            cl_buffer_region buffer_region;
-            cl_kernel my_kernel;
-            cl_program selected_prog;
-            size_t global_work_size[2];
-            /* Invoke per-component upsample method.  Notice we pass a POINTER
-             * to color_buf[ci], so that fullsize_upsample can change it.
-             */
-            // (*upsample->methods[ci]) (cinfo, compptr,
-            //         input_buf[ci] + (*in_row_group_ctr * upsample->rowgroup_height[ci]),
-            //         upsample->color_buf + ci);
-            if(upsample->methods[ci] == fullsize_upsample)
-            {
-                error_code = clEnqueueCopyBuffer(cinfo->current_cl_queue,
-                        input_buf,
-                        full_buf,
-                        compptr->previous_image_size,
-                        buffer_offset,
-                        out_image_size,
-                        NULL,
-                        0,
-                        NULL);
-                if(error_code != CL_SUCCESS)
-                {
-                    ERREXIT(cinfo,error_code);
-                }
-                continue;
-            }
-            my_program = NULL;
-            my_kernel = NULL;
-            sub_input_buffer = NULL;
-            sub_output_buffer = NULL;
-            error_code = CL_SUCCESS;
-            if(upsample->methods[ci] == h2v1_fancy_upsample || upsample->methods[ci] == h2v1_upsample)
-            {
-                error_code = j_opencl_prog_pool_get_h2v1(cinfo->cl_prog_pool,&selected_prog);
-            }
-            else if (upsample->methods[ci] == h2v2_fancy_upsample || upsample->methods[ci] = h2v2_upsample)
-            {
-                error_code = j_opencl_prog_pool_get_h2v2(cinfo->cl_prog_pool,&selected_prog);
-            }
-            if(!selected_prog)
-            {
-                if(CL_SUCCESS != error_code)
-                {
-                    ERREXIT(cinfo,error_code);
-                }
-                continue;
-            }
-            // create input buffer
-            buffer_region.origin = compptr->previous_image_size;
-            buffer_region.size = compptr->downsampled_width * compptr->downsampled_height;
-
-            sub_input_buffer = clCreateSubBuffer(input_buf,0,
-                            CL_BUFFER_CREATE_TYPE_REGION,
-                            &buffer_region,
-                            &error_code);
-
-            if(error_code != CL_SUCCESS)
-            {
-                goto EXIT;
-            }
-            // create output buffer
-            buffer_region.origin = buffer_offset;
-            buffer_region.size = out_image_size;
-            sub_output_buffer = clCreateSubBuffer(full_buf,0,
-                            CL_BUFFER_CREATE_TYPE_REGION,
-                            &buffer_region,
-                            &error_code);
-            if(CL_SUCCESS != error_code)
-            {
-                goto EXIT;
-            }
-            error_code = clCreateKernel(selected_prog,"upsample",&my_kernel);
-            if(CL_SUCCESS != error_code)
-            {
-                goto EXIT;
-            }
-            error_code = clSetKernelArg(my_kernel,0,sizeof(cl_mem),&sub_input_buffer);
-            if(CL_SUCCESS != error_code)
-            {
-                goto EXIT;
-            }
-            error_code = clSetKernelArg(my_kernel,1,sizeof(cl_mem),&sub_output_buffer);
-            global_work_size[0] = cinfo->output_height;
-            global_work_size[1] = cinfo->output_width;
-            error_code = clEnqueueNDRangeKernel(cinfo->current_cl_queue,
-                        my_kernel,
-                        2,
-                        NULL,
-                        global_work_size,
-                        NULL,
-                        0,
-                        NULL,
-                        NULL);
-EXIT:
-            if(my_kernel)
-            {
-                clReleaseKernel(my_kernel);
-            }
-            if(sub_input_buffer)
-            {
-                clReleaseMemObject(sub_input_buffer);
-            }
-            if(sub_output_buffer)
-            {
-                clReleaseMemObject(sub_output_buffer);
-            }
-            if(error_code != CL_SUCCESS)
-            {
-                ERREXIT(cinfo,error_code);
-            }
-        }
-        upsample->next_row_out = 0;
-
-    }
-
-    {
-
-        cl_program ycc_to_rgb;
-        cl_mem color_buf;
-        cl_kernel my_kernel;
-        size_t global_work_size[2];
-
-        color_buf = NULL;
-        error_code = j_opencl_prog_pool_get_ycc_to_rgb(cinfo->cl_prog_pool,&ycc_to_rgb);
-        if(error_code != CL_SUCCESS)
-        {
-            ERREXIT(cinfo,error_code);
-        }
-        color_buf = clCreateBuffer(cinfo->current_cl_context,
-                CL_MEM_READ_WRITE,
-                cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
-                NULL,
-                &error_code);
-        if(error_code != CL_SUCCESS)
-        {
-            goto EXIT2;
-        }
-        my_kernel = clCreateKernel(ycc_to_rgb,"convert",&error_code);
-
-        if(error_code != CL_SUCCESS)
-        {
-            goto EXIT2;
-        }
-
-        
-        
-EXIT2:
-        if(color_buf)
-        {
-            clReleaseMemObject(color_buf);
-        }
-        clReleaseMemObject(full_buf);
-
-        if(CL_SUCCESS != error_code)
-        {
-            ERREXIT(cinfo,error_code);
-        }
-    }
-
-
-    /* Color-convert and emit rows */
-
-    /* How many we have in the buffer: */
-    num_rows = (JDIMENSION) (cinfo->max_v_samp_factor - upsample->next_row_out);
-    /* Not more than the distance to the end of the image.  Need this test
-     * in case the image height is not a multiple of max_v_samp_factor:
-     */
-    if (num_rows > upsample->rows_to_go) 
-        num_rows = upsample->rows_to_go;
-    /* And not more than what the client can accept: */
-    out_rows_avail -= *out_row_ctr;
-    if (num_rows > out_rows_avail)
-        num_rows = out_rows_avail;
-
-    (*cinfo->cconvert->color_convert) (cinfo, upsample->color_buf,
-            (JDIMENSION) upsample->next_row_out,
-            output_buf + *out_row_ctr,
-            (int) num_rows);
-
-    /* Adjust counts */
-    *out_row_ctr += num_rows;
-    upsample->rows_to_go -= num_rows;
-    upsample->next_row_out += num_rows;
-    /* When the buffer is emptied, declare this input row group consumed */
-    if (upsample->next_row_out >= cinfo->max_v_samp_factor)
-        (*in_row_group_ctr)++;
-}
 
 
 /*
@@ -562,6 +331,199 @@ h2v2_fancy_upsample (j_decompress_ptr cinfo, jpeg_component_info * compptr,
     }
 }
 
+/*
+ * Control routine to do upsampling (and color conversion).
+ *
+ * In this version we upsample each component independently.
+ * We upsample one row group into the conversion buffer, then apply
+ * color conversion a row at a time.
+ */
+
+    METHODDEF(void)
+sep_upsample (j_decompress_ptr cinfo,
+        JSAMPIMAGE input_buf, JDIMENSION *in_row_group_ctr,
+        JDIMENSION in_row_groups_avail,
+        JSAMPARRAY output_buf, JDIMENSION *out_row_ctr,
+        JDIMENSION out_rows_avail)
+{
+    cl_mem full_buf;
+    my_upsample_ptr upsample = (my_upsample_ptr) cinfo->upsample;
+    int ci;
+    jpeg_component_info * compptr;
+    JDIMENSION num_rows;
+
+    /* Fill the conversion buffer, if it's empty */
+    {
+        cl_int error_code;
+        cl_mem input_buffer;
+        int buffer_offset;
+        int out_image_size;
+        int previous_image_size;
+
+        full_buf = clCreateBuffer(cinfo->current_cl_context,
+                CL_MEM_READ_WRITE,
+                cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
+                NULL,
+                &error_code);
+        if(error_code != CL_SUCCESS)
+        {
+            ERREXIT(cinfo,error_code);
+        }
+        input_buffer = j_opencl_store_get_buffer(cinfo->cl_store,0);
+
+        out_image_size = cinfo->output_width * cinfo->output_height;
+        for (ci = 0, buffer_offset = 0 ,compptr = cinfo->comp_info,previous_image_size = 0;
+                ci < cinfo->num_components;
+                previous_image_size += compptr->image_buffer_size,ci++, compptr++,buffer_offset += out_image_size) {
+            cl_mem sub_input_buffer;
+            cl_mem sub_output_buffer;
+            cl_buffer_region buffer_region;
+            cl_kernel my_kernel;
+            cl_program selected_prog;
+            size_t global_work_size[2];
+            /* Invoke per-component upsample method.  Notice we pass a POINTER
+             * to color_buf[ci], so that fullsize_upsample can change it.
+             */
+            // (*upsample->methods[ci]) (cinfo, compptr,
+            //         input_buf[ci] + (*in_row_group_ctr * upsample->rowgroup_height[ci]),
+            //         upsample->color_buf + ci);
+            if(upsample->methods[ci] == fullsize_upsample)
+            {
+                error_code = clEnqueueCopyBuffer(cinfo->current_cl_queue,
+                        input_buffer,
+                        full_buf,
+                        previous_image_size,
+                        buffer_offset,
+                        out_image_size,
+                        NULL,
+                        0,
+                        NULL);
+                if(error_code != CL_SUCCESS)
+                {
+                    ERREXIT(cinfo,error_code);
+                }
+                continue;
+            }
+            selected_prog = NULL;
+            my_kernel = NULL;
+            sub_input_buffer = NULL;
+            sub_output_buffer = NULL;
+            error_code = CL_SUCCESS;
+            if(upsample->methods[ci] == h2v1_fancy_upsample || upsample->methods[ci] == h2v1_upsample)
+            {
+                error_code = j_opencl_prog_pool_get_h2v1(cinfo->cl_prog_pool,&selected_prog);
+            }
+            else if (upsample->methods[ci] == h2v2_fancy_upsample || upsample->methods[ci] == h2v2_upsample)
+            {
+                error_code = j_opencl_prog_pool_get_h2v2(cinfo->cl_prog_pool,&selected_prog);
+            }
+            if(!selected_prog)
+            {
+                if(CL_SUCCESS != error_code)
+                {
+                    ERREXIT(cinfo,error_code);
+                }
+                continue;
+            }
+            // create input buffer
+            buffer_region.origin = previous_image_size;
+            buffer_region.size = compptr->downsampled_width * compptr->downsampled_height;
+
+            sub_input_buffer = clCreateSubBuffer(input_buf,0,
+                            CL_BUFFER_CREATE_TYPE_REGION,
+                            &buffer_region,
+                            &error_code);
+
+            if(error_code != CL_SUCCESS)
+            {
+                goto EXIT;
+            }
+            // create output buffer
+            buffer_region.origin = buffer_offset;
+            buffer_region.size = out_image_size;
+            sub_output_buffer = clCreateSubBuffer(full_buf,0,
+                            CL_BUFFER_CREATE_TYPE_REGION,
+                            &buffer_region,
+                            &error_code);
+            if(CL_SUCCESS != error_code)
+            {
+                goto EXIT;
+            }
+            error_code = clCreateKernel(selected_prog,"upsample",&my_kernel);
+            if(CL_SUCCESS != error_code)
+            {
+                goto EXIT;
+            }
+            error_code = clSetKernelArg(my_kernel,0,sizeof(cl_mem),&sub_input_buffer);
+            if(CL_SUCCESS != error_code)
+            {
+                goto EXIT;
+            }
+            error_code = clSetKernelArg(my_kernel,1,sizeof(cl_mem),&sub_output_buffer);
+            global_work_size[0] = cinfo->output_height;
+            global_work_size[1] = cinfo->output_width;
+            error_code = clEnqueueNDRangeKernel(cinfo->current_cl_queue,
+                        my_kernel,
+                        2,
+                        NULL,
+                        global_work_size,
+                        NULL,
+                        0,
+                        NULL,
+                        NULL);
+EXIT:
+            if(my_kernel)
+            {
+                clReleaseKernel(my_kernel);
+            }
+            if(sub_input_buffer)
+            {
+                clReleaseMemObject(sub_input_buffer);
+            }
+            if(sub_output_buffer)
+            {
+                clReleaseMemObject(sub_output_buffer);
+            }
+            if(error_code != CL_SUCCESS)
+            {
+                ERREXIT(cinfo,error_code);
+            }
+        }
+        upsample->next_row_out = 0;
+
+    }
+    j_opencl_store_pop_session(cinfo->cl_store);
+    j_opencl_store_new_session(cinfo->cl_store);
+    j_opencl_store_append_buffer(cinfo->cl_store,full_buf);
+
+
+    /* Color-convert and emit rows */
+
+    /* How many we have in the buffer: */
+    num_rows = (JDIMENSION) (cinfo->max_v_samp_factor - upsample->next_row_out);
+    /* Not more than the distance to the end of the image.  Need this test
+     * in case the image height is not a multiple of max_v_samp_factor:
+     */
+    if (num_rows > upsample->rows_to_go) 
+        num_rows = upsample->rows_to_go;
+    /* And not more than what the client can accept: */
+    out_rows_avail -= *out_row_ctr;
+    if (num_rows > out_rows_avail)
+        num_rows = out_rows_avail;
+
+    (*cinfo->cconvert->color_convert) (cinfo, upsample->color_buf,
+            (JDIMENSION) upsample->next_row_out,
+            output_buf + *out_row_ctr,
+            (int) num_rows);
+
+    /* Adjust counts */
+    *out_row_ctr += num_rows;
+    upsample->rows_to_go -= num_rows;
+    upsample->next_row_out += num_rows;
+    /* When the buffer is emptied, declare this input row group consumed */
+    if (upsample->next_row_out >= cinfo->max_v_samp_factor)
+        (*in_row_group_ctr)++;
+}
 
 /*
  * Module initialization routine for upsampling.
