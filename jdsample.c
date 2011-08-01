@@ -238,6 +238,50 @@ EXIT:
 
     }
 
+    {
+
+        cl_program ycc_to_rgb;
+        cl_mem color_buf;
+        cl_kernel my_kernel;
+        size_t global_work_size[2];
+
+        color_buf = NULL;
+        error_code = j_opencl_prog_pool_get_ycc_to_rgb(cinfo->cl_prog_pool,&ycc_to_rgb);
+        if(error_code != CL_SUCCESS)
+        {
+            ERREXIT(cinfo,error_code);
+        }
+        color_buf = clCreateBuffer(cinfo->current_cl_context,
+                CL_MEM_READ_WRITE,
+                cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
+                NULL,
+                &error_code);
+        if(error_code != CL_SUCCESS)
+        {
+            goto EXIT2;
+        }
+        my_kernel = clCreateKernel(ycc_to_rgb,"convert",&error_code);
+
+        if(error_code != CL_SUCCESS)
+        {
+            goto EXIT2;
+        }
+
+        
+        
+EXIT2:
+        if(color_buf)
+        {
+            clReleaseMemObject(color_buf);
+        }
+        clReleaseMemObject(full_buf);
+
+        if(CL_SUCCESS != error_code)
+        {
+            ERREXIT(cinfo,error_code);
+        }
+    }
+
 
     /* Color-convert and emit rows */
 

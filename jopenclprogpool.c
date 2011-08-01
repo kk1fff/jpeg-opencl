@@ -42,6 +42,7 @@ struct j_opencl_prog_pool
     cl_program idct;
     cl_program h2v1;
     cl_program h2v2;
+    cl_program ycc_to_rgb;
 };
 
 struct j_opencl_prog_pool * j_opencl_prog_pool_create(j_decompress_ptr cinfo)
@@ -62,6 +63,7 @@ void j_opencl_prog_pool_destroy(struct j_opencl_prog_pool * pool)
     SAFE_RELEASE_PROGRAM(pool->idct);
     SAFE_RELEASE_PROGRAM(pool->h2v1);
     SAFE_RELEASE_PROGRAM(pool->h2v2);
+    SAFE_RELEASE_PROGRAM(pool->ycc_to_rgb);
     free(pool);
 }
 
@@ -102,3 +104,7 @@ cl_int j_opencl_prog_pool_get_h2v2(struct j_opencl_prog_pool * pool,cl_program *
     GENERATE_FUNC(idct,"h2v2_fancy_upsample.clc");
 }
 
+cl_int j_opencl_prog_pool_get_ycc_to_rgb(struct j_opencl_prog_pool * pool,cl_program * pprog )
+{
+    GENERATE_FUNC(ycc_to_rgb,"ycc_to_rgb_convert.clc");
+}

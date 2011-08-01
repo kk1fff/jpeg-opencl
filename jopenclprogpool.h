@@ -15,3 +15,4 @@ cl_int j_opencl_prog_pool_get_h2v1(struct j_opencl_prog_pool *,cl_program * );
 
 cl_int j_opencl_prog_pool_get_h2v2(struct j_opencl_prog_pool *,cl_program * );
 
+cl_int j_opencl_prog_pool_get_ycc_to_rgb(struct j_opencl_prog_pool * pool,cl_program * pprog );

@@ -104,6 +104,15 @@ build_ycc_rgb_table (j_decompress_ptr cinfo)
   }
 }
 
+struct ConverterInfo
+{
+  int  Cr_r_tab[MAXJSAMPLE + 1];		/* => table for Cr to R conversion */
+  int  Cb_b_tab[MAXJSAMPLE + 1];		/* => table for Cb to B conversion */
+  int  Cr_g_tab[MAXJSAMPLE + 1];		/* => table for Cr to G conversion */
+  int  Cb_g_tab[MAXJSAMPLE + 1];		/* => table for Cb to G conversion */
+  JSAMPLE  sample_range_limit[(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE)]; 
+  size_t component_image_size; 
+};
 
 /*
  * Convert some rows of samples to the output colorspace.
