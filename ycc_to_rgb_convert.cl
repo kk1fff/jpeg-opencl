@@ -8,7 +8,6 @@ struct ConverterInfo
   int  Cr_g_tab[MAXJSAMPLE + 1];		/* => table for Cr to G conversion */
   int  Cb_g_tab[MAXJSAMPLE + 1];		/* => table for Cb to G conversion */
   JSAMPLE  sample_range_limit[(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE)]; 
-  size_t component_image_size; 
 };
 #define RIGHT_SHIFT(x,shft)	((x) >> (shft))
 #define SCALEBITS	16	/* speediest right-shift on some machines */

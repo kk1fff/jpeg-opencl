@@ -113,7 +113,6 @@ struct ConverterInfo
   int  Cr_g_tab[MAXJSAMPLE + 1];		/* => table for Cr to G conversion */
   int  Cb_g_tab[MAXJSAMPLE + 1];		/* => table for Cb to G conversion */
   JSAMPLE  sample_range_limit[(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE)]; 
-  size_t component_image_size; 
 };
 
 /*
@@ -136,11 +135,16 @@ ycc_rgb_convert (j_decompress_ptr cinfo,
     cl_program ycc_to_rgb;
     cl_mem color_buf;
     cl_mem cl_input_buf;
+    cl_mem convertInfoBuf;
     cl_kernel my_kernel;
     cl_int error_code;
     size_t global_work_size[2];
+    struct ConverterInfo convert_info;
+    my_cconvert_ptr cconvert = (my_cconvert_ptr) cinfo->cconvert;
+
 
     color_buf = NULL;
+    convertInfoBuf = NULL;
     error_code = j_opencl_prog_pool_get_ycc_to_rgb(cinfo->cl_prog_pool,&ycc_to_rgb);
     if(error_code != CL_SUCCESS)
     {
@@ -161,7 +165,26 @@ ycc_rgb_convert (j_decompress_ptr cinfo,
     {
         goto EXIT2;
     }
-    // TODO : set arg 1 of my_kernel
+    memcpy(convert_info.Cr_r_tab,cconvert->Cr_r_tab,sizeof(int)*(MAXJSAMPLE + 1));
+    memcpy(convert_info.Cb_b_tab,cconvert->Cb_b_tab,sizeof(int)*(MAXJSAMPLE + 1));
+    memcpy(convert_info.Cr_g_tab,cconvert->Cr_g_tab,sizeof(int)*(MAXJSAMPLE + 1));
+    memcpy(convert_info.Cb_g_tab,cconvert->Cb_g_tab,sizeof(int)*(MAXJSAMPLE + 1));
+    memcpy(convert_info.sample_range_limit,cinfo->sample_range_limit,(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE) * sizeof(JSAMPLE));
+    convertInfoBuf = clCreateBuffer(cinfo->current_cl_context,
+                CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
+                sizeof(struct ConverterInfo),
+                &convert_info,
+                &error_code);
+
+    if(error_code != CL_SUCCESS)
+    {
+        goto EXIT2;
+    }
+    error_code = clSetKernelArg(my_kernel,0,sizeof(cl_mem),&convertInfoBuf);
+    if(error_code != CL_SUCCESS)
+    {
+        goto EXIT2;
+    }
 
     cl_input_buf = j_opencl_store_get_buffer(cinfo->cl_store,0);
     error_code = clSetKernelArg(my_kernel,1,sizeof(cl_mem),&cl_input_buf);
@@ -187,8 +210,22 @@ ycc_rgb_convert (j_decompress_ptr cinfo,
             NULL);
     j_opencl_store_new_session(cinfo->cl_store);
     j_opencl_store_append_buffer(cinfo->cl_store,color_buf);
+    clEnqueueReadBuffer(cinfo->current_cl_queue,
+        color_buf,
+        CL_TRUE,
+        0,
+        cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
+        output_buf[0],
+        0,
+        0,
+        0);
+
     color_buf = NULL;
 EXIT2:
+    if(convertInfoBuf)
+    {
+        clReleaseMemObject(convertInfoBuf);
+    }
     if(color_buf)
     {
         clReleaseMemObject(color_buf);
