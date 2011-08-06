@@ -48,8 +48,8 @@ jopenclprogpool.c
 ReadFile
 ;
 
-exe cl-compiler : cl-compiler/cl-compiler.c ReadFile opencl : <include>.
+exe cl_compiler : cl-compiler/cl-compiler.c ReadFile opencl : <include>.
 ;
 
-install build : jpeg_decompress cl-compiler
+install build : jpeg_decompress cl_compiler
 ;

@@ -7,27 +7,24 @@
     if(a)\
     {\
         clReleaseProgram(a);\
+        a = NULL;\
     }
 
 #define GET_FUNC_HEADER(a)\
     ;
 
-#define GENERATE_FUNC(func_name,file_name) \
+#define GENERATE_FUNC(file_name) \
     cl_int error_code; \
     j_decompress_ptr cinfo; \
 \
-    if(pool->func_name) \
-    {\
-        *pprog = pool->func_name; \
-        return CL_SUCCESS; \
-    }\
+    SAFE_RELEASE_PROGRAM(pool->current_prog);\
 \
     cinfo = pool->cinfo; \
 \
-    error_code = create_with_file_name(cinfo,&pool->func_name,file_name);\
+    error_code = create_with_file_name(cinfo,&pool->current_prog,file_name);\
     if(error_code == CL_SUCCESS)\
     {\
-        *pprog = pool->func_name;\
+        *pprog = pool->current_prog;\
     }\
     else\
     {\
@@ -39,10 +36,7 @@
 struct j_opencl_prog_pool
 {
     j_decompress_ptr cinfo;
-    cl_program idct;
-    cl_program h2v1;
-    cl_program h2v2;
-    cl_program ycc_to_rgb;
+    cl_program current_prog;
 };
 
 struct j_opencl_prog_pool * j_opencl_prog_pool_create(j_decompress_ptr cinfo)
@@ -60,10 +54,7 @@ struct j_opencl_prog_pool * j_opencl_prog_pool_create(j_decompress_ptr cinfo)
 
 void j_opencl_prog_pool_destroy(struct j_opencl_prog_pool * pool)
 {
-    SAFE_RELEASE_PROGRAM(pool->idct);
-    SAFE_RELEASE_PROGRAM(pool->h2v1);
-    SAFE_RELEASE_PROGRAM(pool->h2v2);
-    SAFE_RELEASE_PROGRAM(pool->ycc_to_rgb);
+    SAFE_RELEASE_PROGRAM(pool->current_prog);
     free(pool);
 }
 
@@ -73,6 +64,7 @@ static cl_int create_with_file_name(j_decompress_ptr cinfo,cl_program * pprog,co
     int file_size;
     char* file_content;
 
+    *pprog = NULL;
     file_size = read_all_bytes(file_name,&file_content);
     if(!file_size)
     {
@@ -91,20 +83,20 @@ static cl_int create_with_file_name(j_decompress_ptr cinfo,cl_program * pprog,co
 
 cl_int j_opencl_prog_pool_get_idct(struct j_opencl_prog_pool * pool,cl_program * pprog )
 {
-    GENERATE_FUNC(idct,"decode_idct.clc");
+    GENERATE_FUNC("decode_idct.clc");
 }
 
 cl_int j_opencl_prog_pool_get_h2v1(struct j_opencl_prog_pool * pool,cl_program * pprog )
 {
-    GENERATE_FUNC(h2v1,"h2v1_fancy_upsample.clc");
+    GENERATE_FUNC("h2v1_fancy_upsample.clc");
 }
 
 cl_int j_opencl_prog_pool_get_h2v2(struct j_opencl_prog_pool * pool,cl_program * pprog )
 {
-    GENERATE_FUNC(idct,"h2v2_fancy_upsample.clc");
+    GENERATE_FUNC("h2v2_fancy_upsample.clc");
 }
 
 cl_int j_opencl_prog_pool_get_ycc_to_rgb(struct j_opencl_prog_pool * pool,cl_program * pprog )
 {
-    GENERATE_FUNC(ycc_to_rgb,"ycc_to_rgb_convert.clc");
+    GENERATE_FUNC("ycc_to_rgb_convert.clc");
 }

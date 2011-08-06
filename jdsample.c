@@ -425,19 +425,6 @@ sep_upsample (j_decompress_ptr cinfo,
                 }
                 continue;
             }
-            // create input buffer
-            buffer_region.origin = previous_image_size;
-            buffer_region.size = compptr->downsampled_width * compptr->downsampled_height;
-
-            sub_input_buffer = clCreateSubBuffer(input_buf,0,
-                            CL_BUFFER_CREATE_TYPE_REGION,
-                            &buffer_region,
-                            &error_code);
-
-            if(error_code != CL_SUCCESS)
-            {
-                goto EXIT;
-            }
             // create output buffer
             buffer_region.origin = buffer_offset;
             buffer_region.size = out_image_size;
@@ -445,11 +432,25 @@ sep_upsample (j_decompress_ptr cinfo,
                             CL_BUFFER_CREATE_TYPE_REGION,
                             &buffer_region,
                             &error_code);
+            if(error_code != CL_SUCCESS)
+            {
+                goto EXIT;
+            }
+
+            // create input buffer
+            buffer_region.origin = previous_image_size;
+            buffer_region.size = compptr->image_buffer_size; 
+
+            sub_input_buffer = clCreateSubBuffer(input_buffer,0,
+                            CL_BUFFER_CREATE_TYPE_REGION,
+                            &buffer_region,
+                            &error_code);
             if(CL_SUCCESS != error_code)
             {
                 goto EXIT;
             }
-            error_code = clCreateKernel(selected_prog,"upsample",&my_kernel);
+
+            my_kernel = clCreateKernel(selected_prog,"my_upsample",&error_code);
             if(CL_SUCCESS != error_code)
             {
                 goto EXIT;
@@ -517,7 +518,7 @@ EXIT:
             (int) num_rows);
 
     /* Adjust counts */
-    *out_row_ctr += num_rows;
+    *out_row_ctr = cinfo->output_height;
     upsample->rows_to_go -= num_rows;
     upsample->next_row_out += num_rows;
     /* When the buffer is emptied, declare this input row group consumed */

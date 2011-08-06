@@ -30,10 +30,12 @@ void convert(
   int yoffset = get_global_id(0);
   int col = get_global_id(1);
   int width = get_global_size(1);
+  int height = get_global_size(0);
+  int component_image_size = width * height;
 
   inptr0 = input_buf + yoffset * width + col;
-  inptr1 = inptr0 + convInfo->component_image_size;
-  inptr2 = inptr1 + convInfo->component_image_size;
+  inptr1 = inptr0 + component_image_size;
+  inptr2 = inptr1 + component_image_size;
   
   y  = (inptr0[0]);
   cb = (inptr1[0]);

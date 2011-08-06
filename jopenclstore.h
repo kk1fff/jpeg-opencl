@@ -1,5 +1,5 @@
 #pragma once
-#include <cl/opencl.h>
+#include <CL/opencl.h>
 
 typedef void (* pfn_opencl_store_free_data)(void *);
 struct j_opencl_store;

@@ -355,7 +355,6 @@ process_data_simple_main (j_decompress_ptr cinfo,
   if (! (*cinfo->coef->decompress_data) (cinfo, main->buffer))
       return;			/* suspension forced, can do nothing more */
   rowgroups_avail = (JDIMENSION) cinfo->min_DCT_scaled_size * cinfo->total_iMCU_rows;
-  while (cinfo->output_scanline < cinfo->output_height) {
       JDIMENSION last_scanline;
       last_scanline = cinfo->output_scanline;
       /* There are always min_DCT_scaled_size row groups in an iMCU row. */
@@ -378,7 +377,6 @@ process_data_simple_main (j_decompress_ptr cinfo,
       // TODO: unable to handle the exeception 
       //if (cinfo->output_scanline == last_scanline)
       //    return FALSE;		/* No progress made, must suspend */
-  }
 }
 
 
@@ -406,13 +404,11 @@ process_data_context_main (j_decompress_ptr cinfo,
 
     main->rowgroup_ctr = 0;
     main->rowgroups_avail = (JDIMENSION) cinfo->min_DCT_scaled_size * cinfo->total_iMCU_rows;
-    while (cinfo->output_scanline < cinfo->output_height) {
 
         /* Call postprocessor using previously set pointers */
         (*cinfo->post->post_process_data) (cinfo, main->buffer,
                 &main->rowgroup_ctr, main->rowgroups_avail,
                 output_buf, out_row_ctr, out_rows_avail);
-    }
 
 }
 
