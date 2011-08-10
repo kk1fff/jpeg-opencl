@@ -210,7 +210,7 @@ ycc_rgb_convert (j_decompress_ptr cinfo,
             NULL);
     j_opencl_store_new_session(cinfo->cl_store);
     j_opencl_store_append_buffer(cinfo->cl_store,color_buf);
-    clEnqueueReadBuffer(cinfo->current_cl_queue,
+    error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
         color_buf,
         CL_TRUE,
         0,

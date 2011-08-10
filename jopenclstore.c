@@ -101,6 +101,7 @@ int j_opencl_store_new_session(struct j_opencl_store * store)
     else
     {
         store->tail->next = element;
+        store->tail = element;
     }
     return 0;
 }

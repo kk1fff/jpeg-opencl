@@ -411,10 +411,15 @@ sep_upsample (j_decompress_ptr cinfo,
             error_code = CL_SUCCESS;
             if(upsample->methods[ci] == h2v1_fancy_upsample || upsample->methods[ci] == h2v1_upsample)
             {
+                global_work_size[0] = compptr->image_buffer_size / compptr->row_buffer_size;
+                global_work_size[1] = compptr->row_buffer_size;
                 error_code = j_opencl_prog_pool_get_h2v1(cinfo->cl_prog_pool,&selected_prog);
             }
             else if (upsample->methods[ci] == h2v2_fancy_upsample || upsample->methods[ci] == h2v2_upsample)
             {
+                global_work_size[0] = compptr->image_buffer_size / compptr->row_buffer_size;
+                global_work_size[0] <<= 1;
+                global_work_size[1] = compptr->row_buffer_size;
                 error_code = j_opencl_prog_pool_get_h2v2(cinfo->cl_prog_pool,&selected_prog);
             }
             if(!selected_prog)
@@ -461,8 +466,10 @@ sep_upsample (j_decompress_ptr cinfo,
                 goto EXIT;
             }
             error_code = clSetKernelArg(my_kernel,1,sizeof(cl_mem),&sub_output_buffer);
-            global_work_size[0] = cinfo->output_height;
-            global_work_size[1] = cinfo->output_width;
+            if(error_code != CL_SUCCESS)
+            {
+                goto EXIT;
+            }
             error_code = clEnqueueNDRangeKernel(cinfo->current_cl_queue,
                         my_kernel,
                         2,
@@ -472,6 +479,11 @@ sep_upsample (j_decompress_ptr cinfo,
                         0,
                         NULL,
                         NULL);
+            if(error_code != CL_SUCCESS)
+            {
+                goto EXIT;
+            }
+            error_code = clFinish(cinfo->current_cl_queue);
 EXIT:
             if(my_kernel)
             {
@@ -496,6 +508,27 @@ EXIT:
     j_opencl_store_pop_session(cinfo->cl_store);
     j_opencl_store_new_session(cinfo->cl_store);
     j_opencl_store_append_buffer(cinfo->cl_store,full_buf);
+    {
+        JSAMPLE * samples;
+        cl_int error_code;
+
+        samples = malloc(cinfo->output_width * cinfo->output_height * cinfo->out_color_components);
+        error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
+                full_buf,
+                CL_TRUE,
+                0,
+                cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
+                samples,
+                0,
+                0,
+                0);
+        if(error_code == CL_SUCCESS)
+        {
+
+        }
+        free(samples);
+
+    }
 
 
     /* Color-convert and emit rows */

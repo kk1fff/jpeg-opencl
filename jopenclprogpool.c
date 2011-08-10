@@ -63,6 +63,7 @@ static cl_int create_with_file_name(j_decompress_ptr cinfo,cl_program * pprog,co
     cl_int error_code;
     int file_size;
     char* file_content;
+    cl_device_id devices[2];
 
     *pprog = NULL;
     file_size = read_all_bytes(file_name,&file_content);
@@ -70,13 +71,14 @@ static cl_int create_with_file_name(j_decompress_ptr cinfo,cl_program * pprog,co
     {
         return CL_OUT_OF_RESOURCES;
     }
-
-    *pprog = clCreateProgramWithBinary(cinfo->current_cl_context,1,&cinfo->current_device_id,&file_size
+    devices[0] = cinfo->current_device_id;
+    devices[1] = 0;
+    *pprog = clCreateProgramWithBinary(cinfo->current_cl_context,1,devices,&file_size
                 ,&file_content,NULL,&error_code);
     free_all_bytes(file_content);
     if(error_code == CL_SUCCESS)
     {
-        error_code = clBuildProgram(*pprog,1,&cinfo->current_device_id,NULL,NULL,NULL);
+        error_code = clBuildProgram(*pprog,1,devices,NULL,NULL,NULL);
     }
     return error_code;
 }
