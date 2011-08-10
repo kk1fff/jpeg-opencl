@@ -210,16 +210,24 @@ ycc_rgb_convert (j_decompress_ptr cinfo,
             NULL);
     j_opencl_store_new_session(cinfo->cl_store);
     j_opencl_store_append_buffer(cinfo->cl_store,color_buf);
-    error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
-        color_buf,
-        CL_TRUE,
-        0,
-        cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
-        output_buf[0],
-        0,
-        0,
-        0);
+    {
+        int height;
+        int pitch;
 
+        pitch = cinfo->output_width * cinfo->out_color_components;
+        for(height = 0 ; height < cinfo->output_height ; ++height)
+        {
+            error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
+                    color_buf,
+                    CL_TRUE,
+                    height * pitch,
+                    cinfo->output_width * cinfo->out_color_components,
+                    output_buf[height],
+                    0,
+                    0,
+                    0);
+        }
+    }
     color_buf = NULL;
 EXIT2:
     if(convertInfoBuf)

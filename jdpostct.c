@@ -168,7 +168,7 @@ post_process_prepass (j_decompress_ptr cinfo,
   if (post->next_row == 0) {
     post->buffer = (*cinfo->mem->access_virt_sarray)
 	((j_common_ptr) cinfo, post->whole_image,
-	 post->starting_row, post->strip_height, TRUE);
+	 post->starting_row,cinfo->output_height, TRUE);
   }
 
   /* Upsample some data (up to a strip height's worth). */
@@ -275,15 +275,18 @@ jinit_d_post_controller (j_decompress_ptr cinfo, boolean need_full_buffer)
 	 cinfo->output_width * cinfo->out_color_components,
 	 (JDIMENSION) jround_up((long) cinfo->output_height,
 				(long) post->strip_height),
-	 post->strip_height);
+	 (JDIMENSION) jround_up((long) cinfo->output_height,
+				(long) post->strip_height));
 #else
       ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
 #endif /* QUANT_2PASS_SUPPORTED */
     } else {
       /* One-pass color quantization: just make a strip buffer. */
-      post->buffer = (*cinfo->mem->alloc_sarray)
-	((j_common_ptr) cinfo, JPOOL_IMAGE,
+      post->buffer = (*cinfo->mem->request_virt_sarray)
+	((j_common_ptr) cinfo, JPOOL_IMAGE, FALSE,
 	 cinfo->output_width * cinfo->out_color_components,
+	 (JDIMENSION) jround_up((long) cinfo->output_height,
+				(long) post->strip_height),
 	 post->strip_height);
     }
   }
