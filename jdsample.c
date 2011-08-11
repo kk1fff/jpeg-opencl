@@ -508,27 +508,6 @@ EXIT:
     j_opencl_store_pop_session(cinfo->cl_store);
     j_opencl_store_new_session(cinfo->cl_store);
     j_opencl_store_append_buffer(cinfo->cl_store,full_buf);
-    {
-        JSAMPLE * samples;
-        cl_int error_code;
-
-        samples = malloc(cinfo->output_width * cinfo->output_height * cinfo->out_color_components);
-        error_code = clEnqueueReadBuffer(cinfo->current_cl_queue,
-                full_buf,
-                CL_TRUE,
-                0,
-                cinfo->output_height * cinfo->output_width * cinfo->out_color_components,
-                samples,
-                0,
-                0,
-                0);
-        if(error_code == CL_SUCCESS)
-        {
-
-        }
-        free(samples);
-
-    }
 
 
     /* Color-convert and emit rows */
