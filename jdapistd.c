@@ -17,7 +17,7 @@
 #define JPEG_INTERNALS
 #include "jinclude.h"
 #include "jpeglib.h"
-
+#include <time.h>
 
 /* Forward declarations */
 LOCAL(boolean) output_pass_setup JPP((j_decompress_ptr cinfo));
@@ -105,8 +105,15 @@ output_pass_setup (j_decompress_ptr cinfo)
 #ifdef QUANT_2PASS_SUPPORTED
       /* Crank through the dummy pass */
       /* Process some data */
-      (*cinfo->main->process_data) (cinfo, (JSAMPARRAY) NULL,
-              &cinfo->output_scanline, (JDIMENSION) 0);
+      {
+          clock_t t1,t2;
+
+          t1 = clock();
+          (*cinfo->main->process_data) (cinfo, (JSAMPARRAY) NULL,
+                  &cinfo->output_scanline, (JDIMENSION) 0);
+          t2 = clock();
+          printf("time consume %lf\n",((double)(t2 - t1)) / CLOCKS_PER_SEC);
+      }
     /* Finish up dummy pass, and set up for another one */
     (*cinfo->master->finish_output_pass) (cinfo);
     (*cinfo->master->prepare_for_output_pass) (cinfo);
