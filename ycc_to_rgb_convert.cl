@@ -22,7 +22,7 @@ void convert(
   __global JSAMPLE * inptr1;
   __global JSAMPLE * inptr2;
   __global JSAMPLE * outptr;
-  __global JSAMPLE * range_limit = convInfo->sample_range_limit;
+  __global JSAMPLE * range_limit = convInfo->sample_range_limit + (MAXJSAMPLE+1);
   __global int * Crrtab = convInfo->Cr_r_tab;
   __global int * Cbbtab = convInfo->Cb_b_tab;
   __global int * Crgtab = convInfo->Cr_g_tab;
@@ -37,13 +37,11 @@ void convert(
   inptr1 = inptr0 + component_image_size;
   inptr2 = inptr1 + component_image_size;
   
-  y  = (inptr0[0]);
-  cb = (inptr1[0]);
-  cr = (inptr2[0]);
+  y  = (inptr0[0]) & 0xff;
+  cb = ((inptr1[0]) & 0xff) - CENTERJSAMPLE;
+  cr = ((inptr2[0]) & 0xff) - CENTERJSAMPLE;
   outptr = output_buf + (yoffset * width + col) * 3;
-  outptr[0] =   range_limit[y + Crrtab[cr]];
-  outptr[1] = range_limit[y +
-    	      ((int) RIGHT_SHIFT(Cbgtab[cb] + Crgtab[cr],
-    				 SCALEBITS))];
-  outptr[2] =  range_limit[y + Cbbtab[cb]];
+  outptr[0] = range_limit[convert_int(convert_float(y) + convert_float(cr) * 1.40200f)] ;
+  outptr[1] = range_limit[convert_int(convert_float(y) - 0.34414 * convert_float(cb) - 0.71414 * convert_float(cr))];
+  outptr[2] = range_limit[convert_int(convert_float(y) + 1.77200 * convert_float(cb))] ;
 }

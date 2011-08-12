@@ -281,7 +281,7 @@ decompress_onepass2 (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
             ERREXIT(cinfo,JERR_OUT_OF_MEMORY);
         }
         decode_info->componets_mcu_width = componets_mcu_width;
-        memcpy(decode_info->sample_range_limit,cinfo->sample_range_limit,(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE) * sizeof(JSAMPLE));
+        memcpy(decode_info->sample_range_limit,cinfo->sample_range_limit - (MAXJSAMPLE+1),(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE) * sizeof(JSAMPLE));
         previous_image_size = 0;
         previous_decoded_mcu_size = 0 ;
         for( i = 0 ; i < cinfo->comps_in_scan ; ++i)

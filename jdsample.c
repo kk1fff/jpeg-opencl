@@ -483,7 +483,6 @@ sep_upsample (j_decompress_ptr cinfo,
             {
                 goto EXIT;
             }
-            error_code = clFinish(cinfo->current_cl_queue);
 EXIT:
             if(my_kernel)
             {

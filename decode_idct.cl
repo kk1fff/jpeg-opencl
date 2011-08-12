@@ -33,7 +33,7 @@ struct DecodeInfo
    struct ComponentInfo component_infos[MAX_COMPONENT_INFO_COUNT]; 
 };
 
-#define IDCT_range_limit(cinfo)  ((cinfo)->sample_range_limit + CENTERJSAMPLE)
+#define IDCT_range_limit(cinfo)  ((cinfo)->sample_range_limit + CENTERJSAMPLE + (MAXJSAMPLE+1))
 #define DEQUANTIZE(coef,quantval)  (((FAST_FLOAT) (coef)) * (quantval))
 #define CONST_BITS  13
 #define PASS1_BITS  2

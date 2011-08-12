@@ -169,7 +169,7 @@ ycc_rgb_convert (j_decompress_ptr cinfo,
     memcpy(convert_info.Cb_b_tab,cconvert->Cb_b_tab,sizeof(int)*(MAXJSAMPLE + 1));
     memcpy(convert_info.Cr_g_tab,cconvert->Cr_g_tab,sizeof(int)*(MAXJSAMPLE + 1));
     memcpy(convert_info.Cb_g_tab,cconvert->Cb_g_tab,sizeof(int)*(MAXJSAMPLE + 1));
-    memcpy(convert_info.sample_range_limit,cinfo->sample_range_limit,(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE) * sizeof(JSAMPLE));
+    memcpy(convert_info.sample_range_limit,cinfo->sample_range_limit - (MAXJSAMPLE+1),(5 * (MAXJSAMPLE+1) + CENTERJSAMPLE) * sizeof(JSAMPLE));
     convertInfoBuf = clCreateBuffer(cinfo->current_cl_context,
                 CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
                 sizeof(struct ConverterInfo),
