@@ -32,16 +32,20 @@ void convert(
   int width = get_global_size(1);
   int height = get_global_size(0);
   int component_image_size = width * height;
+  float3 outputv1 = (float3)(1.0f,0.0f,1.40200f);
+  float3 outputv2 = (float3)(1.0f,-0.34414,-0.71414);
+  float3 outputv3 = (float3)(1.0f,1.77200f,0.0f);
+  float3 components;
 
   inptr0 = input_buf + yoffset * width + col;
   inptr1 = inptr0 + component_image_size;
   inptr2 = inptr1 + component_image_size;
   
-  y  = (inptr0[0]) & 0xff;
-  cb = ((inptr1[0]) & 0xff) - CENTERJSAMPLE;
-  cr = ((inptr2[0]) & 0xff) - CENTERJSAMPLE;
+  components.x  = convert_float((inptr0[0]) & 0xff);
+  components.y = convert_float(((inptr1[0]) & 0xff) - CENTERJSAMPLE);
+  components.z = convert_float(((inptr2[0]) & 0xff) - CENTERJSAMPLE);
   outptr = output_buf + (yoffset * width + col) * 3;
-  outptr[0] = range_limit[convert_int(convert_float(y) + convert_float(cr) * 1.40200f)] ;
-  outptr[1] = range_limit[convert_int(convert_float(y) - 0.34414 * convert_float(cb) - 0.71414 * convert_float(cr))];
-  outptr[2] = range_limit[convert_int(convert_float(y) + 1.77200 * convert_float(cb))] ;
+  outptr[0] = range_limit[convert_int(dot(components , outputv1))] ;
+  outptr[1] = range_limit[convert_int(dot(components,outputv2))];
+  outptr[2] = range_limit[convert_int(dot(components,outputv3))] ;
 }
